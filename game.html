@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Pro Runner: Human Motion</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #0a0a12; font-family: 'Segoe UI', sans-serif; }
+        #ui {
+            position: absolute; top: 20px; width: 100%; text-align: center; color: #00ffcc;
+            pointer-events: none; z-index: 10;
+        }
+        #target-display { font-size: 3.5rem; font-weight: 900; text-shadow: 0 0 20px #00ffcc; }
+        .score-box { background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 50px; display: inline-block; color: white; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div class="score-box">SCORE: <span id="score">0</span></div>
+        <div style="margin-top: 10px; color: #aaa; letter-spacing: 2px;">SOLVE THIS:</div>
+        <div id="target-display">?</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        let scene, camera, renderer, runner, armL, armR, legL, legR;
+        let obstacles = [];
+        let score = 0, speed = 0.45, targetValue = 0;
+        let isJumping = false, jumpVelocity = 0;
+        const gravity = -0.018, laneWidth = 3;
+        const keys = {};
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050508);
+            scene.fog = new THREE.Fog(0x050508, 10, 50);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 6, 12);
+            camera.lookAt(0, 2, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Lighting
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const sun = new THREE.DirectionalLight(0x00ffcc, 1);
+            sun.position.set(5, 15, 10);
+            scene.add(sun);
+
+            // --- Runner Creation (Humanoid) ---
+            runner = new THREE.Group();
+            const matBody = new THREE.MeshPhongMaterial({ color: 0x222222 });
+            const matSkin = new THREE.MeshPhongMaterial({ color: 0xffdbac });
+            const matCloth = new THREE.MeshPhongMaterial({ color: 0x00ffcc });
+
+            // Torso
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1, 0.4), matBody);
+            torso.position.y = 1.5;
+            runner.add(torso);
+
+            // Head
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), matSkin);
+            head.position.y = 2.3;
+            runner.add(head);
+
+            // Arms
+            const armGeo = new THREE.BoxGeometry(0.2, 0.8, 0.2);
+            armL = new THREE.Mesh(armGeo, matSkin);
+            armL.position.set(-0.5, 1.8, 0);
+            armL.geometry.translate(0, -0.3, 0); // Pivot point fix
+            
+            armR = armL.clone();
+            armR.position.x = 0.5;
+            runner.add(armL, armR);
+
+            // Legs
+            const legGeo = new THREE.BoxGeometry(0.25, 1, 0.25);
+            legL = new THREE.Mesh(legGeo, matCloth);
+            legL.position.set(-0.2, 1, 0);
+            legL.geometry.translate(0, -0.4, 0); // Pivot point fix
+
+            legR = legL.clone();
+            legR.position.x = 0.2;
+            runner.add(legL, legR);
+
+            scene.add(runner);
+
+            // Floor
+            const grid = new THREE.GridHelper(200, 60, 0x00ffcc, 0x111111);
+            scene.add(grid);
+
+            window.addEventListener('keydown', (e) => keys[e.code] = true);
+            window.addEventListener('keyup', (e) => keys[e.code] = false);
+            
+            generateNewTarget();
+            spawnObstacle();
+            animate();
+        }
+
+        function generateNewTarget() {
+            const a = Math.floor(Math.random() * 8) + 2;
+            const b = Math.floor(Math.random() * 8) + 2;
+            targetValue = a * b;
+            document.getElementById('target-display').innerText = `${a} x ${b}`;
+        }
+
+        function createTextTexture(text, isCorrect) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 256; canvas.height = 256;
+            ctx.fillStyle = isCorrect ? '#00ffcc' : '#ff3366';
+            ctx.fillRect(0, 0, 256, 256);
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 120px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(text, 128, 170);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function spawnObstacle() {
+            const lane = Math.floor(Math.random() * 3) - 1;
+            const isCorrect = Math.random() > 0.6;
+            const val = isCorrect ? targetValue : targetValue + (Math.random() > 0.5 ? 5 : -3);
+
+            const obs = new THREE.Mesh(
+                new THREE.BoxGeometry(2, 2, 2),
+                new THREE.MeshPhongMaterial({ map: createTextTexture(val.toString(), isCorrect) })
+            );
+            obs.position.set(lane * laneWidth, 1, -60);
+            obs.userData = { isCorrect: isCorrect };
+            scene.add(obs);
+            obstacles.push(obs);
+
+            setTimeout(spawnObstacle, 1500 - (speed * 500));
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = Date.now() * 0.01;
+
+            // WASD Movement
+            if (keys['KeyA'] && runner.position.x > -laneWidth) runner.position.x -= 0.2;
+            if (keys['KeyD'] && runner.position.x < laneWidth) runner.position.x += 0.2;
+            
+            // Jump Logic
+            if (keys['Space'] && !isJumping) {
+                isJumping = true;
+                jumpVelocity = 0.35;
+            }
+            if (isJumping) {
+                runner.position.y += jumpVelocity;
+                jumpVelocity += gravity;
+                if (runner.position.y <= 0) {
+                    runner.position.y = 0;
+                    isJumping = false;
+                }
+            }
+
+            // --- REAL HUMAN MOVEMENTS ---
+            if (!isJumping) {
+                // Leg swing
+                legL.rotation.x = Math.sin(time) * 0.6;
+                legR.rotation.x = Math.sin(time + Math.PI) * 0.6;
+                // Arm swing (opposite to legs)
+                armL.rotation.x = Math.sin(time + Math.PI) * 0.6;
+                armR.rotation.x = Math.sin(time) * 0.6;
+                // Body bobbing
+                runner.position.y = Math.abs(Math.sin(time * 2)) * 0.1;
+            } else {
+                // Jump pose
+                legL.rotation.x = -0.5; legR.rotation.x = -0.5;
+                armL.rotation.x = 0.5; armR.rotation.x = 0.5;
+            }
+
+            // Obstacle logic
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.position.z += speed;
+
+                // Better Collision (Hitbox)
+                if (Math.abs(runner.position.z - obs.position.z) < 1.2 && 
+                    Math.abs(runner.position.x - obs.position.x) < 1.5 && 
+                    runner.position.y < 1.5) {
+                    
+                    if (obs.userData.isCorrect) {
+                        score += 10;
+                        document.getElementById('score').innerText = score;
+                        speed += 0.01;
+                        scene.remove(obs);
+                        obstacles.splice(i, 1);
+                        generateNewTarget();
+                    } else {
+                        alert("Wrong! Your Brain needs a recharge. Score: " + score);
+                        location.reload();
+                    }
+                }
+
+                if (obs.position.z > 15) {
+                    scene.remove(obs);
+                    obstacles.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        init();
+    </script>
+</body>
+</html>

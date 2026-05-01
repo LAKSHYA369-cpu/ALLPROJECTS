@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Viewport Meta Tag for Mobile Scaling -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stickman Physics Ultimate</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&display=swap" rel="stylesheet">
+    <style>
+        /* --- UNIVERSAL STYLES --- */
+        body {
+            font-family: 'Bangers', cursive, sans-serif;
+            margin: 0; padding: 0;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; width: 100vw;
+            overflow: hidden; /* Prevent scrolling */
+            touch-action: none; /* Disable browser gestures */
+            user-select: none; -webkit-user-select: none;
+        }
+
+        /* --- SCREEN CONTAINERS --- */
+        .screen {
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            width: 95%; max-width: 800px; height: 95%;
+            background: rgba(0, 0, 0, 0.85);
+            border-radius: 15px; position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            border: 2px solid rgba(255,255,255,0.1);
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .screen.active { display: flex; }
+
+        /* --- TYPOGRAPHY & UI --- */
+        h1 { font-size: 3rem; color: #ffeb3b; margin: 5px; text-shadow: 3px 3px 0 #000; text-align: center; }
+        h2 { font-size: 2rem; margin: 5px; color: #fff; }
+        
+        /* SCROLLABLE GRIDS (For Mobile Lists) */
+        .grid-container {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+            overflow-y: auto; max-height: 60vh; width: 100%;
+            padding: 10px;
+        }
+
+        .char-card {
+            background: rgba(255,255,255,0.1); border: 2px solid white;
+            border-radius: 8px; padding: 10px; width: 80px;
+            display: flex; flex-direction: column; align-items: center; cursor: pointer;
+        }
+        .char-card.selected { border-color: #00ffcc; background: rgba(0,255,204,0.3); }
+        .char-preview { width: 30px; height: 30px; border-radius: 50%; border: 2px solid black; margin-bottom: 5px; }
+
+        /* --- MENUS BUTTONS --- */
+        .menu-btn {
+            font-family: 'Bangers'; font-size: 1.5rem;
+            background: white; color: #333; border: 3px solid #000;
+            padding: 10px 30px; margin: 5px; border-radius: 8px;
+            cursor: pointer; box-shadow: 0 4px 0 #555; width: 80%; max-width: 300px;
+        }
+        .menu-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #555; }
+
+        .icon-btn {
+            position: absolute; width: 40px; height: 40px;
+            border-radius: 50%; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; background: white; border: 2px solid black; top: 10px; z-index: 100;
+        }
+        .back-btn { left: 10px; }
+        .code-btn { right: 10px; }
+
+        /* --- GAME AREA (RESPONSIVE) --- */
+        #game-area {
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* CANVAS SCALING */
+        canvas {
+            background: #dcdcdc; border: 2px solid #000; border-radius: 4px;
+            /* This ensures canvas fits screen but keeps aspect ratio */
+            width: 100%; height: auto; 
+            max-height: 60vh; object-fit: contain;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+
+        /* --- CONTROLS (GAMEPAD STYLE) --- */
+        #controls-wrapper {
+            width: 100%; display: flex; justify-content: space-between;
+            padding: 10px 20px; box-sizing: border-box;
+            margin-top: auto; /* Push to bottom */
+        }
+
+        .control-group {
+            display: grid; gap: 10px;
+            /* Layout for D-Pad and Action Buttons */
+        }
+        
+        .d-pad {
+            grid-template-columns: 60px 60px;
+            grid-template-rows: 50px 50px;
+        }
+
+        .actions {
+            grid-template-columns: 60px 60px;
+            grid-template-rows: 50px 50px;
+        }
+
+        .game-btn {
+            width: 60px; height: 60px; border-radius: 50%;
+            border: 3px solid rgba(0,0,0,0.5); font-size: 1.5rem;
+            display: flex; justify-content: center; align-items: center;
+            background: rgba(255,255,255,0.8); color: #333;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.5);
+            user-select: none; -webkit-tap-highlight-color: transparent;
+        }
+        .game-btn:active { transform: scale(0.9); background: #ffeb3b; }
+        
+        #btn-super { background: rgba(255, 0, 0, 0.8); color: white; border-color: darkred; }
+
+        /* Helper Styles */
+        input { font-family: 'Bangers'; font-size: 1.2rem; padding: 10px; text-align: center; width: 70%; border-radius: 5px; }
+        .coin { width: 16px; height: 16px; background: gold; border: 1px solid orange; border-radius: 50%; display: inline-block; vertical-align: middle; }
+        .hud { width: 100%; display: flex; justify-content: space-between; padding: 0 10px; font-size: 1.2rem; color: yellow; margin-bottom: 5px; }
+
+        /* PC Specific Tweaks */
+        @media (min-width: 800px) {
+            .screen { max-width: 900px; padding: 20px; }
+            h1 { font-size: 4rem; }
+            .game-btn { width: 70px; height: 70px; font-size: 2rem; opacity: 0.8; }
+            /* On PC, show keyboard hints */
+            .game-btn::after { font-size: 10px; position: absolute; bottom: 5px; color: #555; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main Menu -->
+    <div id="menu-screen" class="screen active">
+        <button class="icon-btn code-btn" onclick="nav('code-screen')">🔑</button>
+        <h1>STICK FIGHTER</h1>
+        <h3 style="color:#00ffcc; text-align: center;">PHYSICS EDITION</h3>
+        
+        <div style="display:flex; flex-direction:column; align-items:center; width:100%;">
+            <button class="menu-btn" onclick="nav('char-select')">PLAY GAME</button>
+            <button class="menu-btn" onclick="nav('shop')">UPGRADES</button>
+            <button class="menu-btn" onclick="nav('char-shop')">CHARACTERS</button>
+        </div>
+
+        <div style="margin-top:20px; font-size: 1.5rem;">
+            Coins: <span id="menu-coins">0</span> <div class="coin"></div>
+        </div>
+    </div>
+
+    <!-- Code Screen -->
+    <div id="code-screen" class="screen">
+        <button class="icon-btn back-btn" onclick="nav('menu-screen')">⬅</button>
+        <h2>ENTER CODE</h2>
+        <input type="text" id="code-input" placeholder="CODE HERE">
+        <button class="menu-btn" onclick="submitCode()">SUBMIT</button>
+        <p style="opacity:0.6;">(Try: RICH, GODMODE, SPEED)</p>
+    </div>
+
+    <!-- Character Selection -->
+    <div id="char-select" class="screen">
+        <button class="icon-btn back-btn" onclick="nav('menu-screen')">⬅</button>
+        <h2>SELECT FIGHTER</h2>
+        <div id="select-grid" class="grid-container"></div>
+        <button class="menu-btn" style="background:#4caf50; color:white;" onclick="startGame(false)">FIGHT!</button>
+    </div>
+
+    <!-- Shop -->
+    <div id="shop" class="screen">
+        <button class="icon-btn back-btn" onclick="nav('menu-screen')">⬅</button>
+        <h2>STATS SHOP</h2>
+        <div style="display:flex; gap:10px; justify-content:center; width:100%;">
+            <div class="char-card" style="width: 120px; height: auto;">
+                <h3>HP</h3>
+                <p>Lvl: <span id="hp-lvl">0</span></p>
+                <button class="menu-btn" style="width:100%; font-size:1rem; padding:5px;" onclick="buyUpgrade('health')">
+                    Buy (<span id="hp-cost">100</span>)
+                </button>
+            </div>
+            <div class="char-card" style="width: 120px; height: auto;">
+                <h3>POW</h3>
+                <p>Lvl: <span id="dmg-lvl">0</span></p>
+                <button class="menu-btn" style="width:100%; font-size:1rem; padding:5px;" onclick="buyUpgrade('damage')">
+                    Buy (<span id="dmg-cost">150</span>)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Char Shop -->
+    <div id="char-shop" class="screen">
+        <button class="icon-btn back-btn" onclick="nav('menu-screen')">⬅</button>
+        <h2>UNLOCK HEROES</h2>
+        <div id="shop-grid" class="grid-container"></div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen" style="background:none; border:none; box-shadow:none; padding:0; width:100%; height:100%;">
+        <div class="hud">
+            <div>P1</div>
+            <div><span id="hud-coins">0</span> <div class="coin"></div></div>
+        </div>
+        
+        <div id="game-area">
+            <canvas id="game-canvas"></canvas>
+            
+            <!-- Mobile Optimized Controls -->
+            <div id="controls-wrapper">
+                <!-- Left: Movement -->
+                <div class="control-group d-pad">
+                    <div class="game-btn" id="btn-left" style="grid-column: 1; grid-row: 2;">⬅</div>
+                    <div class="game-btn" id="btn-right" style="grid-column: 2; grid-row: 2;">➡</div>
+                    <div class="game-btn" id="btn-jump" style="grid-column: 1 / span 2; grid-row: 1; width: 100%;">⬆</div>
+                </div>
+
+                <!-- Right: Action -->
+                <div class="control-group actions">
+                    <div class="game-btn" id="btn-punch" style="grid-column: 1; grid-row: 2;">👊</div>
+                    <div class="game-btn" id="btn-kick" style="grid-column: 2; grid-row: 2;">🦵</div>
+                    <div class="game-btn" id="btn-super" style="grid-column: 1 / span 2; grid-row: 1; width: 100%;">⚡</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen" class="screen">
+        <h1 id="res-title">VICTORY</h1>
+        <button class="menu-btn" onclick="nav('menu-screen')">CONTINUE</button>
+    </div>
+
+<script>
+    /** --- CONFIGURATION --- */
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Internal Resolution (Logic coordinates)
+    // We keep this fixed for physics consistency, CSS scales the visual
+    const W = 800; 
+    const H = 400;
+    const GROUND_Y = 350;
+    
+    canvas.width = W; 
+    canvas.height = H;
+
+    // Physics Settings
+    const GRAVITY = 0.8;
+    const FRICTION = 0.85;
+    const JUMP_FORCE = -18;
+    const MOVE_SPEED = 2;
+    const MAX_SPEED = 10;
+
+    let state = {
+        coins: 0, unlockedChars: ['black'], upgrades: { health: 0, damage: 0 },
+        running: false, godMode: false
+    };
+
+    const CHARS = [
+        { id: 'black', name: 'Stickman', color: '#000' },
+        { id: 'blue', name: 'Ninja', color: '#00f' },
+        { id: 'red', name: 'Brawler', color: '#f00' },
+        { id: 'green', name: 'Soldier', color: '#080' },
+        { id: 'purple', name: 'Master', color: '#808' },
+        { id: 'gold', name: 'God', color: '#FFD700' }
+    ];
+
+    /** --- ENTITIES --- */
+    function createEntity(x, color, isPlayer) {
+        return {
+            x: x, y: GROUND_Y, vx: 0, vy: 0,
+            color: color,
+            hp: 100, maxHp: 100,
+            dir: 1, anim: 'idle', frame: 0, maxFrame: 0,
+            isPlayer: isPlayer, stunTimer: 0, hitProcessed: false
+        };
+    }
+
+    let player = createEntity(100, 'black', true);
+    let enemy = createEntity(600, 'red', false);
+    let particles = [];
+    let gameLoopId;
+
+    /** --- PHYSICS ENGINE --- */
+    function updatePhysics(ent) {
+        // Gravity
+        if (ent.y < GROUND_Y) ent.vy += GRAVITY;
+        else { ent.vy = 0; ent.y = GROUND_Y; }
+
+        // Friction
+        if (ent.y === GROUND_Y) ent.vx *= FRICTION;
+        else ent.vx *= 0.95;
+
+        // Apply
+        ent.x += ent.vx; ent.y += ent.vy;
+
+        // Stop jitter
+        if(Math.abs(ent.vx) < 0.1) ent.vx = 0;
+
+        // Boundaries
+        if(ent.x < 20) { ent.x = 20; ent.vx = 0; }
+        if(ent.x > W-20) { ent.x = W-20; ent.vx = 0; }
+    }
+
+    function checkHit(attacker, victim) {
+        if (attacker.hitProcessed) return;
+        
+        // Define Hit Frames
+        let hitFrame = (attacker.anim === 'punch') ? 8 : (attacker.anim === 'kick' ? 12 : 15);
+        
+        if (attacker.frame >= hitFrame && attacker.frame <= hitFrame + 5) {
+            let reach = (attacker.anim === 'kick') ? 80 : 60;
+            let dist = Math.abs(attacker.x - victim.x);
+            let facing = (attacker.dir === 1 && victim.x > attacker.x) || (attacker.dir === -1 && victim.x < attacker.x);
+
+            if (dist < reach + 30 && facing) {
+                // Confirm Hit
+                attacker.hitProcessed = true;
+                let dmg = (attacker.anim === 'punch') ? 10 : 20;
+                if(attacker.anim === 'super') dmg = 40;
+                
+                // Stats Boost
+                dmg += (attacker.isPlayer ? state.upgrades.damage * 5 : 0);
+                if(state.godMode && victim.isPlayer) dmg = 0;
+
+                victim.hp -= dmg;
+                victim.vx = attacker.dir * (dmg/1.5); // Knockback
+                victim.vy = -3;
+                victim.stunTimer = 15;
+                victim.anim = 'stun';
+                
+                createParticles(victim.x, victim.y - 50, 'orange');
+
+                if(victim.hp <= 0) endGame(attacker.isPlayer);
+            }
+        }
+    }
+
+    function updateAI() {
+        if(enemy.stunTimer > 0) return;
+        let dist = player.x - enemy.x;
+        enemy.dir = (dist > 0) ? 1 : -1;
+
+        if (Math.abs(dist) < 70) {
+            if(enemy.anim === 'idle') performAction(enemy, Math.random()<0.5?'punch':'kick');
+        } else if (Math.abs(dist) < 500) {
+            enemy.vx += (enemy.dir * 0.5);
+            if(Math.abs(enemy.vx) > MAX_SPEED/1.5) enemy.vx = (MAX_SPEED/1.5) * Math.sign(enemy.vx);
+            if(enemy.anim === 'idle') enemy.anim = 'walk';
+        } else {
+            enemy.anim = 'idle';
+        }
+    }
+
+    /** --- RENDERER (Joint System) --- */
+    function drawEntity(ent) {
+        ctx.save();
+        let shake = (ent.stunTimer > 0) ? (Math.random()-0.5)*5 : 0;
+        let cx = ent.x + shake;
+        let shoulders = ent.y - 60;
+        let hips = ent.y - 25;
+
+        // Default Angles
+        let headY = shoulders - 15;
+        let armL = { a1: 1.0, a2: -0.5 }, armR = { a1: 0.8, a2: -0.8 };
+        let legL = { a1: 1.3, a2: 1.6 }, legR = { a1: 1.4, a2: 1.8 };
+
+        // Walk Animation
+        if ((ent.anim === 'walk' || Math.abs(ent.vx) > 0.5) && ent.anim !== 'punch' && ent.anim !== 'kick') {
+            let cycle = Date.now()/120;
+            shoulders += Math.sin(cycle)*2;
+            legL.a1 = 1.5 + Math.sin(cycle)*0.6; legL.a2 = 1.5 + Math.sin(cycle)*0.3;
+            legR.a1 = 1.5 - Math.sin(cycle)*0.6; legR.a2 = 1.5 - Math.sin(cycle)*0.3;
+            armL.a1 = 1.0 - Math.sin(cycle)*0.6; armR.a1 = 1.0 + Math.sin(cycle)*0.6;
+        }
+
+        // Attack Logic
+        let p = ent.frame / ent.maxFrame;
+        if (ent.anim === 'punch') {
+            if (p < 0.5) { armR.a1 = 2.5; armR.a2 = 2.0; } 
+            else { armR.a1 = 0.1; armR.a2 = 0.0; cx += ent.dir*15; }
+        } else if (ent.anim === 'kick') {
+            if (p < 0.5) { legR.a1 = -0.5; legR.a2 = 2.2; }
+            else { legR.a1 = -0.2; legR.a2 = 0.1; cx += ent.dir*10; }
+        }
+
+        // Draw Helper
+        const limb = (x, y, a1, l1, a2, l2) => {
+            if (ent.dir === -1) { a1 = Math.PI - a1; a2 = Math.PI - a2; }
+            let ex = x + Math.cos(a1)*l1, ey = y + Math.sin(a1)*l1;
+            let hx = ex + Math.cos(a2)*l2, hy = ey + Math.sin(a2)*l2;
+            ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(ex,ey); ctx.lineTo(hx,hy); ctx.stroke();
+            ctx.beginPath(); ctx.arc(ex,ey,4,0,Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(hx,hy,6,0,Math.PI*2); ctx.fill();
+        };
+
+        ctx.strokeStyle = ctx.fillStyle = ent.color; ctx.lineWidth = 7; ctx.lineCap = 'round';
+
+        // Draw (Back to Front)
+        limb(cx, hips, legL.a1, 28, legL.a2, 28);
+        limb(cx, shoulders, armL.a1, 24, armL.a2, 24);
+        ctx.beginPath(); ctx.moveTo(cx, shoulders); ctx.lineTo(cx, hips); ctx.lineWidth=12; ctx.stroke(); // Body
+        ctx.beginPath(); ctx.arc(cx+(ent.dir*3), headY, 14, 0, Math.PI*2); ctx.fill(); // Head
+        ctx.lineWidth=7;
+        limb(cx, hips, legR.a1, 28, legR.a2, 28);
+        limb(cx, shoulders, armR.a1, 24, armR.a2, 24);
+        
+        ctx.restore();
+    }
+
+    function createParticles(x, y, c) {
+        for(let i=0; i<10; i++) particles.push({ x, y, vx: (Math.random()-0.5)*15, vy: (Math.random()-0.5)*15, life: 20, c });
+    }
+
+    /** --- MAIN LOOP --- */
+    function loop() {
+        if(!state.running) return;
+        
+        // Render Background
+        ctx.fillStyle = '#eee'; ctx.fillRect(0,0,W,H);
+        ctx.fillStyle = '#333'; ctx.fillRect(0, GROUND_Y, W, 50);
+
+        // Update Logic
+        if(player.stunTimer>0) player.stunTimer--;
+        if(enemy.stunTimer>0) enemy.stunTimer--;
+
+        // Player Controls
+        if(player.anim === 'idle' || player.anim === 'walk') {
+            if(keys['left']) { player.vx -= MOVE_SPEED; player.dir = -1; }
+            if(keys['right']) { player.vx += MOVE_SPEED; player.dir = 1; }
+            if(keys['jump'] && player.y === GROUND_Y) player.vy = JUMP_FORCE;
+            
+            if(player.vx > MAX_SPEED) player.vx = MAX_SPEED;
+            if(player.vx < -MAX_SPEED) player.vx = -MAX_SPEED;
+        }
+
+        // Animations
+        [player, enemy].forEach(ent => {
+            if(ent.anim !== 'idle' && ent.anim !== 'walk' && ent.anim !== 'stun') {
+                ent.frame++;
+                if(ent.frame > ent.maxFrame) { ent.anim = 'idle'; ent.frame = 0; ent.hitProcessed = false; }
+            }
+        });
+
+        updatePhysics(player);
+        updatePhysics(enemy);
+        checkHit(player, enemy);
+        checkHit(enemy, player);
+        updateAI();
+
+        // Draw
+        drawEntity(enemy);
+        drawEntity(player);
+
+        particles.forEach((p, i) => {
+            p.life--; p.x+=p.vx; p.y+=p.vy;
+            ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, 5, 5);
+            if(p.life<=0) particles.splice(i,1);
+        });
+
+        // UI Bars
+        const bar = (x, v, m, c) => {
+            ctx.fillStyle = '#444'; ctx.fillRect(x, 20, 250, 20);
+            ctx.fillStyle = c; ctx.fillRect(x, 20, Math.max(0, (v/m)*250), 20);
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(x, 20, 250, 20);
+        };
+        bar(20, player.hp, player.maxHp, '#0f0');
+        bar(W-270, enemy.hp, enemy.maxHp, 'red');
+
+        gameLoopId = requestAnimationFrame(loop);
+    }
+
+    function performAction(char, type) {
+        if(char.stunTimer>0 || char.y < GROUND_Y) return;
+        if(char.anim === 'idle' || char.anim === 'walk') {
+            char.anim = type; char.frame = 0; char.hitProcessed = false;
+            if(type === 'punch') char.maxFrame = 20;
+            if(type === 'kick') char.maxFrame = 30;
+            if(type === 'super') char.maxFrame = 50;
+        }
+    }
+
+    /** --- INPUTS (PC & MOBILE) --- */
+    let keys = {};
+    
+    // Keyboard
+    window.onkeydown = e => {
+        let k = e.key.toLowerCase();
+        if(k==='a'||k==='arrowleft') keys['left'] = true;
+        if(k==='d'||k==='arrowright') keys['right'] = true;
+        if(k==='w'||k==='arrowup'||k===' ') keys['jump'] = true;
+        if(k==='j') performAction(player, 'punch');
+        if(k==='k') performAction(player, 'kick');
+        if(k==='l') performAction(player, 'super');
+    };
+    window.onkeyup = e => {
+        let k = e.key.toLowerCase();
+        if(k==='a'||k==='arrowleft') keys['left'] = false;
+        if(k==='d'||k==='arrowright') keys['right'] = false;
+        if(k==='w'||k==='arrowup'||k===' ') keys['jump'] = false;
+    };
+
+    // Touch Buttons
+    const bindTouch = (id, key, isAction) => {
+        const btn = document.getElementById(id);
+        const start = (e) => { e.preventDefault(); if(isAction) performAction(player, key); else keys[key] = true; };
+        const end = (e) => { e.preventDefault(); if(!isAction) keys[key] = false; };
+        btn.addEventListener('mousedown', start); btn.addEventListener('mouseup', end);
+        btn.addEventListener('touchstart', start, {passive: false}); btn.addEventListener('touchend', end, {passive: false});
+    };
+
+    bindTouch('btn-left', 'left', false);
+    bindTouch('btn-right', 'right', false);
+    bindTouch('btn-jump', 'jump', false);
+    bindTouch('btn-punch', 'punch', true);
+    bindTouch('btn-kick', 'kick', true);
+    bindTouch('btn-super', 'super', true);
+
+    /** --- GAME FLOW --- */
+    function nav(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if(id==='char-shop') renderShop();
+        if(id==='char-select') renderSelect();
+        updateUI();
+    }
+
+    function save() { localStorage.setItem('sf_mobile_data', JSON.stringify(state)); updateUI(); }
+    function load() {
+        let d = localStorage.getItem('sf_mobile_data');
+        if(d) { let p = JSON.parse(d); state.coins = p.coins; state.unlockedChars = p.unlockedChars; state.upgrades = p.upgrades; }
+    }
+
+    function updateUI() {
+        document.getElementById('menu-coins').innerText = state.coins;
+        document.getElementById('hud-coins').innerText = state.coins;
+        // Upgrades
+        let hCost = (state.upgrades.health+1)*100;
+        let dCost = (state.upgrades.damage+1)*150;
+        document.getElementById('hp-lvl').innerText = state.upgrades.health;
+        document.getElementById('hp-cost').innerText = hCost;
+        document.getElementById('dmg-lvl').innerText = state.upgrades.damage;
+        document.getElementById('dmg-cost').innerText = dCost;
+    }
+
+    function renderShop() {
+        const g = document.getElementById('shop-grid'); g.innerHTML = '';
+        CHARS.forEach(c => {
+            if(!state.unlockedChars.includes(c.id)) {
+                let d = document.createElement('div'); d.className = 'char-card';
+                d.innerHTML = `<div class='char-preview' style='background:${c.color}'></div>${c.name}<br>500 <div class='coin'></div>`;
+                d.onclick = () => { if(state.coins>=500) { state.coins-=500; state.unlockedChars.push(c.id); save(); renderShop(); } else alert("Need Coins!"); };
+                g.appendChild(d);
+            }
+        });
+    }
+
+    function renderSelect() {
+        const g = document.getElementById('select-grid'); g.innerHTML = '';
+        state.unlockedChars.forEach(id => {
+            let c = CHARS.find(x=>x.id===id);
+            let d = document.createElement('div'); d.className = 'char-card';
+            d.innerHTML = `<div class='char-preview' style='background:${c.color}'></div>${c.name}`;
+            d.onclick = () => { player.color = c.color; Array.from(g.children).forEach(el=>el.classList.remove('selected')); d.classList.add('selected'); };
+            g.appendChild(d);
+        });
+    }
+
+    function buyUpgrade(t) {
+        let cost = (state.upgrades[t]+1)*(t==='health'?100:150);
+        if(state.coins>=cost) { state.coins-=cost; state.upgrades[t]++; save(); }
+    }
+
+    function submitCode() {
+        let c = document.getElementById('code-input').value.toUpperCase();
+        if(c==='RICH') { state.coins+=1000; alert("Rich!"); }
+        else if(c==='GODMODE') { state.godMode=true; alert("God Mode!"); }
+        else if(c==='SPEED') { alert("Speed!"); } // Just placeholder logic
+        else alert("Invalid");
+        save(); nav('menu-screen');
+    }
+
+    function startGame(boss) {
+        player.hp = player.maxHp = 100 + (state.upgrades.health*50);
+        player.x = 100; player.vx = 0;
+        enemy.hp = enemy.maxHp = 100 + (boss?200:0);
+        enemy.x = 600; enemy.vx = 0;
+        state.running = true;
+        nav('game-screen');
+        loop();
+    }
+
+    function endGame(win) {
+        state.running = false;
+        document.getElementById('res-title').innerText = win ? "VICTORY" : "DEFEAT";
+        if(win) state.coins += 100;
+        save();
+        setTimeout(() => nav('result-screen'), 1000);
+    }
+
+    load();
+    updateUI();
+</script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AETHERIS - Voice Link</title>
+    <style>
+        body { background: #0f0f0f; color: #00ffcc; font-family: 'Courier New', monospace; text-align: center; padding-top: 50px; }
+        .status { border: 2px solid #00ffcc; padding: 20px; display: inline-block; border-radius: 10px; box-shadow: 0 0 15px #00ffcc; }
+        button { background: #00ffcc; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="status">
+        <h2>AETHERIS VOICE BRIDGE</h2>
+        <p id="state">Ready to Sync...</p>
+        <button onclick="startListening()">Tap to Start Voice Search</button>
+    </div>
+
+    <script>
+        // Yeh function Google Voice Search ko bina install kiye trigger karega
+        function startListening() {
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'hi-IN'; // Hindi/English support
+            
+            document.getElementById('state').innerText = "Listening through Earbuds...";
+            
+            recognition.onresult = (event) => {
+                const query = event.results[0][0].transcript;
+                document.getElementById('state').innerText = "Searching: " + query;
+                // Seedha Google Search par redirect karega
+                window.open(`https://www.google.com/search?q=${query}`, '_blank');
+            };
+            
+            recognition.start();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geometry Dash Clone - Ultra Edition</title>
+    <style>
+        :root {
+            --bg-color: #0066ff;
+            --player-color: #00ff00;
+            --floor-color: #0044cc;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: linear-gradient(var(--bg-color), #003399);
+            border-bottom: 5px solid #fff;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 10%;
+            width: 100%;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-overlay">Percentage: <span id="percent">0</span>%</div>
+    <div class="instructions">Click, Space, or Tap to JUMP</div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const percentEl = document.getElementById('percent');
+
+        // Canvas Setup
+        canvas.width = 800;
+        canvas.height = 400;
+
+        // Game Constants
+        const GRAVITY = 0.8;
+        const JUMP_FORCE = -12;
+        const SPEED = 5;
+        const GROUND_Y = 350;
+
+        let gameActive = true;
+        let score = 0;
+        let frame = 0;
+
+        // Player Object
+        const player = {
+            x: 100,
+            y: GROUND_Y - 40,
+            w: 40,
+            h: 40,
+            dy: 0,
+            rotation: 0,
+            grounded: false,
+            jump() {
+                if (this.grounded) {
+                    this.dy = JUMP_FORCE;
+                    this.grounded = false;
+                }
+            }
+        };
+
+        // Obstacles Array
+        let obstacles = [];
+
+        function spawnObstacle() {
+            let type = Math.random() > 0.3 ? 'spike' : 'block';
+            obstacles.push({
+                x: canvas.width + 100,
+                y: GROUND_Y - (type === 'spike' ? 40 : 80),
+                w: 40,
+                h: 40,
+                type: type
+            });
+        }
+
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
+            
+            // Rotation effect like Geometry Dash
+            if (!player.grounded) {
+                player.rotation += 0.15;
+            } else {
+                player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
+            }
+            
+            ctx.rotate(player.rotation);
+            
+            // Outer Square
+            ctx.fillStyle = '#00ff00';
+            ctx.fillRect(-player.w / 2, -player.h / 2, player.w, player.h);
+            
+            // Inner Square (Eye/Face style)
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(-player.w / 2 + 5, -player.h / 2 + 5, player.w - 10, player.h - 10);
+            
+            ctx.restore();
+        }
+
+        function drawObstacles() {
+            obstacles.forEach((obs, index) => {
+                ctx.fillStyle = "#fff";
+                if (obs.type === 'spike') {
+                    // Triangle Shape
+                    ctx.beginPath();
+                    ctx.moveTo(obs.x, GROUND_Y);
+                    ctx.lineTo(obs.x + obs.w / 2, obs.y);
+                    ctx.lineTo(obs.x + obs.w, GROUND_Y);
+                    ctx.fill();
+                } else {
+                    // Block Shape
+                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                    ctx.strokeRect(obs.x, obs.y, obs.w, obs.h);
+                }
+
+                obs.x -= SPEED;
+
+                // Collision Detection
+                if (
+                    player.x < obs.x + obs.w - 5 &&
+                    player.x + player.w > obs.x + 5 &&
+                    player.y < obs.y + obs.h - 5 &&
+                    player.y + player.h > obs.y + 5
+                ) {
+                    gameOver();
+                }
+
+                // Cleanup
+                if (obs.x + obs.w < 0) obstacles.splice(index, 1);
+            });
+        }
+
+        function drawBackground() {
+            // Animated floor
+            ctx.fillStyle = '#0044cc';
+            ctx.fillRect(0, GROUND_Y, canvas.width, canvas.height - GROUND_Y);
+            
+            // Grid lines for GD feel
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 40) {
+                let offset = (frame * SPEED) % 40;
+                ctx.beginPath();
+                ctx.moveTo(i - offset, 0);
+                ctx.lineTo(i - offset, GROUND_Y);
+                ctx.stroke();
+            }
+        }
+
+        function gameOver() {
+            gameActive = false;
+            alert("Game Over! Percent: " + Math.floor(score / 10) + "%");
+            location.reload(); 
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            frame++;
+            score++;
+            percentEl.innerText = Math.floor(score / 20);
+
+            // Gravity Logic
+            player.dy += GRAVITY;
+            player.y += player.dy;
+
+            if (player.y + player.h >= GROUND_Y) {
+                player.y = GROUND_Y - player.h;
+                player.dy = 0;
+                player.grounded = true;
+            }
+
+            // Spawning
+            if (frame % 80 === 0) spawnObstacle();
+
+            drawBackground();
+            drawObstacles();
+            drawPlayer();
+
+            requestAnimationFrame(update);
+        }
+
+        // Controls
+        const handleInput = () => player.jump();
+        window.addEventListener('keydown', (e) => { if (e.code === 'Space') handleInput(); });
+        canvas.addEventListener('mousedown', handleInput);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(); });
+
+        update();
+    </script>
+</body>
+</html>

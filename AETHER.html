@@ -1,0 +1,478 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AETHER - Hyper-Speed Neural Link</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <!-- React and Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+
+    <style>
+        :root {
+            --neon-primary: #00f2ff;
+            --neon-secondary: #0077ff;
+            --bg-deep: #000810;
+            --hud-bg: rgba(0, 15, 30, 0.96);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: var(--bg-deep);
+            color: #e0faff;
+            font-family: 'JetBrains+Mono', monospace;
+            overflow: hidden;
+            margin: 0;
+            height: 100dvh; /* Dynamic viewport height for mobile browsers */
+            width: 100vw;
+        }
+
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+        .hud-glass { background: var(--hud-bg); backdrop-filter: blur(20px); border: 1px solid rgba(0, 242, 255, 0.2); }
+        .glow-text { text-shadow: 0 0 10px var(--neon-primary), 0 0 20px rgba(0, 242, 255, 0.4); }
+        .scroll-hide::-webkit-scrollbar { display: none; }
+        
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes spin-rev { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+        .animate-spin-fast { animation: spin 15s linear infinite; }
+        .animate-reverse-spin-fast { animation: spin-rev 10s linear infinite; }
+
+        .trace-out-anim { 
+            stroke-dasharray: 10 1200; 
+            stroke-dashoffset: 1200; 
+            animation: trace-move-out 0.8s linear infinite; /* Faster line travel */
+            will-change: stroke-dashoffset;
+        }
+        @keyframes trace-move-out { to { stroke-dashoffset: 0; } }
+        
+        .trace-in-anim {
+            stroke-dasharray: 300 1200; 
+            stroke-dashoffset: 0; 
+            animation: trace-move-in 0.4s cubic-bezier(0.1, 0.9, 0.2, 1) forwards; 
+            will-change: stroke-dashoffset;
+            stroke-width: 8px;
+            filter: brightness(3) blur(5px);
+        }
+        @keyframes trace-move-in { to { stroke-dashoffset: 1200; } }
+
+        .bg-gradient-vignette {
+            background: radial-gradient(circle at center, rgba(0, 242, 255, 0.08) 0%, var(--bg-deep) 100%);
+        }
+
+        .hud-scanline {
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(to right, transparent, rgba(0, 242, 255, 0.3), transparent);
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            animation: scan 8s linear infinite;
+            z-index: 999;
+        }
+        @keyframes scan { 0% { transform: translateY(-100px); } 100% { transform: translateY(110vh); } }
+
+        @keyframes fall {
+            0% { transform: translateY(-100%); opacity: 0; }
+            30% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { transform: translateY(100vh); opacity: 0; }
+        }
+        .code-particle {
+            position: absolute;
+            color: var(--neon-primary);
+            font-size: clamp(8px, 1.2vw, 11px);
+            opacity: 0;
+            pointer-events: none;
+            animation: fall linear infinite;
+        }
+
+        .chip-core-shadow {
+            box-shadow: 0 0 100px rgba(0, 242, 255, 0.2), inset 0 0 40px rgba(0, 242, 255, 0.4);
+        }
+
+        .msg-line {
+            position: absolute;
+            top: 1.5rem;
+            left: -1px;
+            width: 3px;
+            height: calc(100% - 3rem);
+            background: var(--neon-primary);
+            box-shadow: 0 0 10px var(--neon-primary);
+        }
+
+        /* Responsive Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 242, 255, 0.2); border-radius: 10px; }
+
+        @media (max-width: 768px) {
+            .msg-bubble { max-width: 95% !important; padding: 1.5rem !important; border-radius: 1.5rem !important; }
+            .input-panel { border-radius: 2rem !important; padding: 1.5rem !important; }
+            .btn-action { height: 4rem !important; padding: 0 1.5rem !important; border-radius: 1rem !important; font-size: 0.9rem !important; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-vignette">
+    <div class="hud-scanline"></div>
+    <div id="root"></div>
+
+    <script>
+      window.process = window.process || { env: {} };
+    </script>
+
+    <script type="module">
+        import { GoogleGenAI, Modality } from "https://esm.run/@google/genai";
+        window.GoogleGenAI = GoogleGenAI;
+        window.Modality = Modality;
+        window.dispatchEvent(new CustomEvent('genai-ready'));
+    </script>
+
+    <script type="text/babel" data-presets="env,react">
+        const { useState, useEffect, useRef, useMemo, memo } = React;
+
+        /**
+         * ==========================================
+         * 🔑 API_KEY_ZONE 🔑
+         * Paste key between quotes below for standalone browser support.
+         * ==========================================
+         */
+        const MANUAL_API_KEY = "AIzaSyAc0c0RgxMKLdk4jiH-I9h-zRfy4vq3rCU"; 
+
+        const DigitalRain = memo(() => {
+            const [particles, setParticles] = useState([]);
+            useEffect(() => {
+                const count = window.innerWidth < 768 ? 20 : 45;
+                const newParticles = Array.from({ length: count }, (_, i) => ({
+                    id: i,
+                    left: `${Math.random() * 100}%`,
+                    duration: `${10 + Math.random() * 15}s`,
+                    delay: `${Math.random() * -20}s`,
+                    content: Math.random() > 0.5 ? "0100110" : "AF7C2"
+                }));
+                setParticles(newParticles);
+            }, []);
+            return (
+                <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-5 z-0">
+                    {particles.map(p => (
+                        <div key={p.id} className="code-particle font-mono" style={{ left: p.left, animationDuration: p.duration, animationDelay: p.delay }}>
+                            {p.content}
+                        </div>
+                    ))}
+                </div>
+            );
+        });
+
+        const NeuralParticles = memo(({ status }) => {
+            const canvasRef = useRef(null);
+            const particles = useRef([]);
+            const requestRef = useRef(null);
+            
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d', { alpha: true });
+                const resize = () => {
+                    canvas.width = window.innerWidth;
+                    canvas.height = window.innerHeight;
+                };
+                window.addEventListener('resize', resize);
+                resize();
+                
+                const pCount = window.innerWidth < 768 ? 40 : 80;
+                particles.current = Array.from({ length: pCount }, () => ({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2 + 0.5,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    alpha: Math.random() * 0.4 + 0.1,
+                }));
+
+                const animate = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    const isBusy = status === 'BUSY';
+                    const speedMultiplier = isBusy ? 12.0 : 1.2;
+                    
+                    ctx.fillStyle = isBusy ? 'rgba(0, 242, 255, 0.4)' : 'rgba(0, 110, 255, 0.2)';
+                    particles.current.forEach(p => {
+                        p.x += p.vx * speedMultiplier;
+                        p.y += p.vy * speedMultiplier;
+                        if (p.x < 0) p.x = canvas.width;
+                        if (p.x > canvas.width) p.x = 0;
+                        if (p.y < 0) p.y = canvas.height;
+                        if (p.y > canvas.height) p.y = 0;
+                        
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+                    requestRef.current = requestAnimationFrame(animate);
+                };
+                animate();
+                return () => {
+                    window.removeEventListener('resize', resize);
+                    cancelAnimationFrame(requestRef.current);
+                };
+            }, [status]);
+
+            return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0 opacity-40" />;
+        });
+
+        const NeuralChipCore = memo(({ active }) => {
+            const [phase, setPhase] = useState('IDLE');
+            const [isVisible, setIsVisible] = useState(false);
+            const startTimeRef = useRef(0);
+
+            useEffect(() => {
+                if (active) {
+                    setIsVisible(true);
+                    setPhase('PROCESSING');
+                    startTimeRef.current = Date.now();
+                } else if (phase === 'PROCESSING') {
+                    const elapsed = Date.now() - startTimeRef.current;
+                    const minDuration = 3000;
+                    const delay = Math.max(0, minDuration - elapsed);
+                    const timer = setTimeout(() => {
+                        setPhase('RETURNING');
+                        const hideTimer = setTimeout(() => {
+                            setIsVisible(false);
+                            setPhase('IDLE');
+                        }, 500);
+                        return () => clearTimeout(hideTimer);
+                    }, delay);
+                    return () => clearTimeout(timer);
+                }
+            }, [active, phase]);
+
+            const circuitTraces = useMemo(() => {
+                const center = 500;
+                const coreSize = 100; 
+                return Array.from({ length: 220 }, (_, i) => {
+                    const angle = (i * (360 / 220)) * (Math.PI / 180);
+                    let currX = center + Math.cos(angle) * coreSize;
+                    let currY = center + Math.sin(angle) * coreSize;
+                    let d = `M ${currX} ${currY}`;
+                    const segments = 4 + Math.floor(Math.random() * 5);
+                    for (let s = 0; s < segments; s++) {
+                        const length = 15 + Math.random() * 120;
+                        const direction = Math.random() > 0.5;
+                        if (direction) currX += (Math.random() > 0.5 ? 1 : -1) * length;
+                        else currY += (Math.random() > 0.5 ? 1 : -1) * length;
+                        d += ` L ${currX} ${currY}`;
+                    }
+                    return { 
+                        d, endX: currX, endY: currY, 
+                        delay: Math.random() * 0.8, 
+                        duration: 0.8 + Math.random() * 1.5, 
+                        opacity: 0.3 + Math.random() * 0.7 
+                    };
+                });
+            }, []);
+
+            if (!isVisible) return null;
+
+            return (
+                <div className={`fixed inset-0 flex items-center justify-center z-[100] pointer-events-none bg-black/90 backdrop-blur-[30px] transition-opacity duration-300 ${phase === 'IDLE' ? 'opacity-0' : 'opacity-100'}`}>
+                    <div className="relative w-full h-full max-w-[1000px] max-h-[1000px] flex items-center justify-center transition-transform duration-500" style={{ transform: window.innerWidth < 600 ? 'scale(0.5)' : 'scale(1)' }}>
+                        <svg viewBox="0 0 1000 1000" className="absolute inset-0 w-full h-full">
+                            {circuitTraces.map((trace, i) => (
+                                <g key={i}>
+                                    <path d={trace.d} fill="none" stroke="var(--neon-primary)" strokeWidth="0.5" style={{ opacity: trace.opacity * 0.1 }} />
+                                    <path 
+                                        d={trace.d} 
+                                        fill="none" 
+                                        stroke="var(--neon-primary)" 
+                                        strokeWidth="3" 
+                                        strokeDasharray="40 1200"
+                                        className={phase === 'PROCESSING' ? 'trace-out-anim' : 'trace-in-anim'}
+                                        style={{ animationDelay: `${trace.delay}s` }} 
+                                    />
+                                </g>
+                            ))}
+                        </svg>
+
+                        <div className="absolute w-[450px] h-[450px] border border-[var(--neon-primary)]/20 rounded-full animate-spin-fast"></div>
+                        <div className="absolute w-[400px] h-[400px] border border-dashed border-[var(--neon-secondary)]/30 rounded-full animate-reverse-spin-fast"></div>
+
+                        <div className={`relative w-72 h-72 flex items-center justify-center transition-all duration-500 ${phase === 'RETURNING' ? 'scale-110' : 'scale-100'}`}>
+                            <div className="absolute inset-0 bg-[#000815] border-2 border-[var(--neon-primary)] rounded-[32px] chip-core-shadow">
+                                <div className="absolute top-0 left-0 w-16 h-16 border-t-[8px] border-l-[8px] border-[var(--neon-primary)]"></div>
+                                <div className="absolute bottom-0 right-0 w-16 h-16 border-b-[8px] border-r-[8px] border-[var(--neon-primary)]"></div>
+                            </div>
+                            <div className="relative z-10 flex flex-col items-center">
+                                <h2 className="orbitron font-black text-6xl text-[var(--neon-primary)] glow-text tracking-widest animate-pulse">AETHER</h2>
+                                <div className="mt-6 flex gap-1.5">
+                                    {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="w-6 h-1.5 bg-[var(--neon-primary)] opacity-60"></div>)}
+                                </div>
+                                <div className="text-[10px] orbitron font-bold tracking-[0.5em] text-[var(--neon-primary)]/70 mt-4">V15.1_ULTRALIGHT</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        });
+
+        const App = () => {
+            const [sdkReady, setSdkReady] = useState(!!window.GoogleGenAI);
+            const [hasKey, setHasKey] = useState(false);
+            const [status, setStatus] = useState('INIT');
+            const [messages, setMessages] = useState([{ id: 'sys-1', role: 'system', content: 'AETHER V15.1 UPLINK STABLE. NEURAL CORE READY.' }]);
+            const [input, setInput] = useState('');
+            const [thinking, setThinking] = useState(false);
+            const [useSearch, setUseSearch] = useState(false);
+            const chatEndRef = useRef(null);
+
+            useEffect(() => {
+                if (!sdkReady) {
+                    const handler = () => setSdkReady(true);
+                    window.addEventListener('genai-ready', handler);
+                    return () => window.removeEventListener('genai-ready', handler);
+                }
+            }, [sdkReady]);
+
+            useEffect(() => {
+                const checkAuth = async () => {
+                    if (MANUAL_API_KEY && MANUAL_API_KEY.length > 5) setHasKey(true);
+                    else if (window.aistudio?.hasSelectedApiKey && await window.aistudio.hasSelectedApiKey()) setHasKey(true);
+                    else if (process.env.API_KEY) setHasKey(true);
+                    setStatus('READY');
+                };
+                checkAuth();
+            }, []);
+
+            useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, status]);
+
+            const handleAction = async () => {
+                if (!input.trim() || status === 'BUSY' || !sdkReady) return;
+                setStatus('BUSY');
+                const currentInput = input;
+                setMessages(prev => [...prev, { id: Date.now(), role: 'user', content: currentInput }]);
+                setInput('');
+
+                try {
+                    const apiKey = (MANUAL_API_KEY && MANUAL_API_KEY.length > 5) ? MANUAL_API_KEY : process.env.API_KEY;
+                    const ai = new window.GoogleGenAI({ apiKey });
+                    const response = await ai.models.generateContent({
+                        model: thinking ? 'gemini-3-pro-preview' : 'gemini-flash-lite-latest',
+                        contents: { parts: [{ text: currentInput }] },
+                        config: {
+                            systemInstruction: "AETHER AI. Professional, efficient, futuristic.",
+                            thinkingConfig: thinking ? { thinkingBudget: 24000 } : undefined,
+                            tools: useSearch ? [{ googleSearch: {} }] : undefined
+                        }
+                    });
+                    setMessages(prev => [...prev, { id: Date.now() + 1, role: 'agent', content: response.text || "COMM_ERROR" }]);
+                } catch (e) {
+                    setMessages(prev => [...prev, { id: 'err', role: 'system', content: `CRITICAL: ${e.message}` }]);
+                } finally {
+                    setStatus('READY');
+                }
+            };
+
+            const authorizeLink = async () => {
+                if (window.aistudio?.openSelectKey) {
+                    await window.aistudio.openSelectKey();
+                    setHasKey(true);
+                } else alert("Please enter your API Key in the code manually (MANUAL_API_KEY).");
+            };
+
+            if (!hasKey && !process.env.API_KEY && (!MANUAL_API_KEY || MANUAL_API_KEY.length < 5)) {
+                return (
+                    <div className="flex flex-col h-screen items-center justify-center p-6 bg-gradient-vignette text-center">
+                        <DigitalRain />
+                        <div className="hud-glass p-8 md:p-16 rounded-[2rem] md:rounded-[4rem] border-2 border-[var(--neon-primary)]/40 shadow-2xl animate-in fade-in zoom-in duration-700 max-w-2xl w-full">
+                            <h1 className="orbitron font-black text-4xl md:text-6xl text-[var(--neon-primary)] glow-text mb-6">UPLINK_OFFLINE</h1>
+                            <p className="font-mono text-sm md:text-lg text-[var(--neon-primary)]/70 mb-10 uppercase tracking-widest">
+                                Neural authorization required. Please link your Gemini API Key.
+                            </p>
+                            <button onClick={authorizeLink} className="w-full py-6 rounded-2xl border-2 border-[var(--neon-primary)] text-[var(--neon-primary)] orbitron font-bold text-xl hover:bg-[var(--neon-primary)]/20 active:scale-95 transition-all">
+                                AUTHORIZE_LINK
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="flex flex-col h-screen relative overflow-hidden bg-gradient-vignette">
+                    <DigitalRain />
+                    <NeuralParticles status={status} />
+                    
+                    <header className="h-20 md:h-28 border-b border-[var(--neon-primary)]/20 flex items-center justify-between px-6 md:px-12 hud-glass relative z-50">
+                        <div className="flex flex-col">
+                            <h1 className="orbitron font-black text-2xl md:text-4xl text-[var(--neon-primary)] glow-text tracking-tighter">AETHER_SYNTH</h1>
+                            <div className="text-[9px] orbitron tracking-[0.4em] text-[var(--neon-primary)] opacity-80 uppercase">
+                                [{status}]_LINK_ACTIVE_V15.1
+                            </div>
+                        </div>
+                    </header>
+
+                    <div className="flex flex-1 overflow-hidden">
+                        <aside className="hidden md:flex w-24 border-r border-[var(--neon-primary)]/20 flex-col items-center py-10 gap-12 hud-glass relative z-50">
+                            {['Ψ', 'Δ', 'Σ'].map((m, i) => (
+                                <div key={i} className="w-14 h-14 rounded-2xl flex items-center justify-center border border-[var(--neon-primary)]/30 text-[var(--neon-primary)] orbitron font-bold">
+                                    {m}
+                                </div>
+                            ))}
+                        </aside>
+
+                        <main className="flex-1 flex flex-col p-4 md:p-10 relative">
+                            <NeuralChipCore active={status === 'BUSY'} />
+                            
+                            <div className="flex-1 overflow-y-auto custom-scrollbar px-2 md:px-10 pb-48 space-y-10 z-10">
+                                {messages.map((msg) => (
+                                    <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-4 duration-300`}>
+                                        <div className={`msg-bubble relative max-w-[90%] md:max-w-[80%] p-6 md:p-10 rounded-[2rem] border transition-all hud-glass ${msg.role === 'user' ? 'border-[var(--neon-primary)]/50 bg-[var(--neon-primary)]/10' : 'border-white/10'}`}>
+                                            <div className="text-base md:text-lg font-mono leading-relaxed whitespace-pre-wrap">{msg.content}</div>
+                                            {msg.role === 'agent' && <div className="msg-line"></div>}
+                                        </div>
+                                    </div>
+                                ))}
+                                <div ref={chatEndRef} />
+                            </div>
+
+                            <div className="absolute bottom-4 md:bottom-10 left-4 md:left-10 right-4 md:right-10 z-40">
+                                <div className="input-panel hud-glass p-6 md:p-8 rounded-[3rem] border border-[var(--neon-primary)]/30 shadow-2xl">
+                                    <div className="flex flex-wrap gap-4 mb-6">
+                                        <button onClick={() => setThinking(!thinking)} className={`px-6 py-2 rounded-full border text-[10px] orbitron font-bold transition-all ${thinking ? 'bg-[var(--neon-primary)] text-black' : 'border-white/20 text-[var(--neon-primary)]/50'}`}>COGNITION</button>
+                                        <button onClick={() => setUseSearch(!useSearch)} className={`px-6 py-2 rounded-full border text-[10px] orbitron font-bold transition-all ${useSearch ? 'bg-[var(--neon-primary)] text-black' : 'border-white/20 text-[var(--neon-primary)]/50'}`}>NETWORK</button>
+                                    </div>
+                                    <div className="flex flex-col md:flex-row items-stretch md:items-end gap-4">
+                                        <textarea 
+                                            value={input} 
+                                            onChange={(e) => setInput(e.target.value)} 
+                                            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAction(); } }}
+                                            placeholder="TRANSMIT_COMMAND..." 
+                                            className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-base md:text-lg font-mono outline-none focus:border-[var(--neon-primary)]/40 transition-all min-h-[60px] max-h-[150px] scroll-hide"
+                                        />
+                                        <button 
+                                            onClick={handleAction} 
+                                            disabled={status === 'BUSY' || !sdkReady} 
+                                            className="btn-action h-16 md:h-20 px-8 md:px-12 rounded-2xl border-2 border-[var(--neon-primary)] text-[var(--neon-primary)] orbitron font-black hover:bg-[var(--neon-primary)]/20 active:scale-95 transition-all disabled:opacity-30"
+                                        >
+                                            TRANSMIT
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </main>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAKSHYA | SwiftLink Pro</title>
+    <style>
+        :root { --main: #00d2ff; --bg: #050505; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #111; border: 1px solid var(--main); padding: 35px; border-radius: 20px; text-align: center; width: 360px; box-shadow: 0 10px 40px rgba(0, 210, 255, 0.3); }
+        h1 { color: var(--main); letter-spacing: 5px; margin: 0; font-size: 35px; text-shadow: 0 0 15px rgba(0,210,255,0.5); }
+        .badge { background: var(--main); color: black; font-size: 10px; padding: 3px 10px; border-radius: 20px; font-weight: bold; }
+        input { width: 100%; padding: 15px; background: #000; border: 1px solid #333; color: #fff; border-radius: 12px; margin: 25px 0 15px 0; box-sizing: border-box; outline: none; }
+        input:focus { border-color: var(--main); }
+        button#actionBtn { width: 100%; padding: 15px; background: var(--main); color: black; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.3s; }
+        button#actionBtn:hover { transform: scale(1.02); background: white; }
+        #result { margin-top: 25px; display: none; padding: 20px; background: #1a1a1a; border-radius: 15px; border: 1px dashed var(--main); animation: slideUp 0.4s; }
+        @keyframes slideUp { from {opacity: 0; transform: translateY(10px);} to {opacity: 1; transform: translateY(0);} }
+        /* Style for the fake LAKSHYA link display */
+        .fake-link { color: var(--main); font-size: 18px; font-weight: bold; display: block; margin-bottom: 15px; letter-spacing: 1px; }
+        .btn-row { display: flex; gap: 10px; }
+        .btn-row button { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--main); background: transparent; color: var(--main); cursor: pointer; font-weight: bold; }
+        .btn-row button:hover { background: var(--main); color: black; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <span class="badge">CUSTOM BRANDING</span>
+    <h1>LAKSHYA</h1>
+    <p style="color: #666; font-size: 11px; margin-top: 8px;">Private & Branded Link Shortener</p>
+    
+    <input type="url" id="longUrl" placeholder="Paste your link here...">
+    <button id="actionBtn" onclick="process()">SHORTEN & BRAND</button>
+
+    <div id="result">
+        <p style="font-size: 11px; color: #888; margin-bottom: 10px;">Aapka Branded Link:</p>
+        <div id="fakeDisplay" class="fake-link"></div>
+        
+        <input type="hidden" id="realLink">
+        
+        <div class="btn-row">
+            <button onclick="copyIt()">COPY </button>
+            <button onclick="openIt()">OPEN NOW</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function process() {
+        const input = document.getElementById('longUrl').value;
+        const btn = document.getElementById('actionBtn');
+        const resDiv = document.getElementById('result');
+
+        if(!input || !input.startsWith('http')) {
+            alert("Please enter a valid URL!");
+            return;
+        }
+
+        btn.innerText = "Generating...";
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(input)}`);
+            const data = await response.json();
+            
+            if (data.shorturl) {
+                const originalShort = data.shorturl; // Jaise: https://is.gd/abc12
+                const shortCode = originalShort.split('/').pop(); // Sirf 'abc12' nikala
+                
+                // Dikhne wala link (Fake)
+                document.getElementById('fakeDisplay').innerText = "https://lakshya/" + shortCode;
+                
+                // Asli link ko hidden field mein save kiya
+                document.getElementById('realLink').value = originalShort;
+                
+                resDiv.style.display = 'block';
+            } else {
+                alert("Error generating link.");
+            }
+        } catch (e) {
+            alert("Network Error!");
+        } finally {
+            btn.innerText = "SHORTEN & BRAND";
+            btn.disabled = false;
+        }
+    }
+
+    function copyIt() {
+        const real = document.getElementById('realLink').value;
+        navigator.clipboard.writeText(real);
+        alert("Copied Real Link: " + real);
+    }
+
+    function openIt() {
+        const real = document.getElementById('realLink').value;
+        window.open(real, '_blank');
+    }
+</script>
+
+</body>
+</html>
+

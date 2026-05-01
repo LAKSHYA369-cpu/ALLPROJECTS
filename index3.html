@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AETHERIS-ASI | SUPREME EDGE</title>
+    <style>
+        :root { --neon: #00f2ff; --bg: #000; }
+        body { background: var(--bg); color: var(--neon); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        .header { padding: 20px; border-bottom: 1px solid var(--neon); text-align: center; font-weight: bold; letter-spacing: 5px; }
+        #console { flex: 1; padding: 20px; overflow-y: auto; background: rgba(0,242,255,0.02); }
+        .input-box { padding: 20px; border-top: 1px solid var(--neon); background: #050505; }
+        input { width: 100%; background: transparent; border: 1px solid var(--neon); padding: 15px; color: #fff; outline: none; }
+        .ai-msg { border-left: 2px solid var(--neon); padding: 10px; margin: 10px 0; background: rgba(255,255,255,0.05); color: #fff; }
+        .thought { color: #555; font-size: 0.7rem; }
+    </style>
+</head>
+<body>
+    <div class="header">AETHERIS ASI v6.0</div>
+    <div id="console"></div>
+    <div class="input-box">
+        <input type="text" id="userInput" placeholder="Execute command..." autofocus>
+    </div>
+
+    <script>
+        // --- YAHAN APNA TUNNEL URL DAALEIN ---
+        const BACKEND_URL = "APNA_TUNNEL_URL_YAHAN_PASTE_KAREIN"; 
+
+        const input = document.getElementById('userInput');
+        const consoleDiv = document.getElementById('console');
+
+        input.addEventListener('keypress', async (e) => {
+            if (e.key === 'Enter' && input.value) {
+                const query = input.value;
+                input.value = '';
+                consoleDiv.innerHTML += `<div><span style="color:#fff">USER:</span> ${query}</div>`;
+
+                const response = await fetch(`${BACKEND_URL}/process`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({query: query})
+                });
+                const data = await response.json();
+
+                consoleDiv.innerHTML += `
+                    <div class="thought">${data.thought} [${data.latency}]</div>
+                    <div class="ai-msg">${data.result}</div>
+                `;
+                consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            }
+        });
+    </script>
+</body>
+</html>

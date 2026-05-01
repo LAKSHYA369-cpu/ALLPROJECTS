@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Viewport setting is crucial for mobile responsiveness -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rudra AI Core Interface</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"> 
+
+    <script>
+        // NOTE: The tailwind.config object is now only for theme extensions and is kept here.
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-cyan': '#00ffff',
+                        'dark-bg': '#030a18',
+                        'light-bg': '#f5f5f5', 
+                        'light-text': '#1a1a1a', 
+                    },
+                    fontFamily: {
+                        'sans': ['Arial', 'Helvetica', 'sans-serif'],
+                    },
+                    screens: {
+                        'xs': '480px', // Added extra small screen support
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        /* CSS Variables for Dynamic Theming */
+        :root {
+            /* Default Dark Theme */
+            --primary-color: #00ffff; 
+            --text-color: #e0e0e0;
+            --background-color: #030a18; 
+            --glow-intensity: 0 0 5px var(--primary-color), 0 0 10px var(--primary-color), 0 0 15px #00aaff;
+            --lockdown-color: #ff0000;
+            --lockdown-glow: 0 0 5px var(--lockdown-color), 0 0 10px var(--lockdown-color), 0 0 15px var(--lockdown-color);
+            --border-style: 1px solid var(--primary-color);
+            --shadow-style: var(--glow-intensity);
+        }
+
+        /* Light Theme Configuration */
+        .theme-light {
+            --primary-color: #0077ff; 
+            --text-color: #1a1a1a;
+            --background-color: #f5f5f5;
+            --glow-intensity: 0 0 5px rgba(0, 119, 255, 0.5), 0 0 10px rgba(0, 119, 255, 0.3);
+            --lockdown-color: #d90000;
+            --lockdown-glow: 0 0 5px var(--lockdown-color), 0 0 10px var(--lockdown-color);
+        }
+
+        /* LOW GLOW / STEALTH MODE */
+        .low-glow {
+            --glow-intensity: none;
+            --shadow-style: none;
+            --border-style: 1px solid rgba(0, 255, 255, 0.3);
+            --primary-color: rgba(0, 255, 255, 0.8);
+        }
+
+
+        /* Base Body and Interface Styling */
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-family: var(--font-family);
+            transition: all 0.5s ease;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+        }
+        .holographic-border {
+            border: var(--border-style); /* Uses variable */
+            box-shadow: var(--shadow-style); /* Uses variable */
+            background-color: rgba(0, 0, 0, 0.3); /* Slightly darker bg for panels */
+        }
+        .holographic-text {
+            color: var(--primary-color);
+            text-shadow: 0 0 5px var(--primary-color);
+        }
+        .holographic-input {
+            color: var(--text-color);
+            border-bottom: var(--border-style); /* Uses variable */
+            transition: box-shadow 0.2s;
+            border-radius: 0; /* Remove mobile default radius */
+        }
+        .holographic-input:focus {
+            outline: none;
+            box-shadow: var(--shadow-intensity); /* Uses variable */
+        }
+        
+        /* Lockdown Mode */
+        .lockdown {
+            background-color: #300a0a !important;
+            color: var(--lockdown-color) !important;
+        }
+        .lockdown .holographic-border {
+            border-color: var(--lockdown-color) !important;
+            box-shadow: var(--lockdown-glow) !important;
+        }
+        .lockdown .holographic-text {
+            color: var(--lockdown-color) !important;
+            text-shadow: 0 0 5px var(--lockdown-color) !important;
+        }
+        /* Core Load Animation */
+        @keyframes rotate-core {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        #core-load-visual {
+            animation: rotate-core 4s linear infinite;
+            border-color: var(--primary-color); 
+        }
+        /* Added for the SET BRIGHTNESS command */
+        #main-interface {
+            transition: filter 0.5s ease;
+        }
+        /* Style adjustments for better Light/Dark compatibility */
+        #log-display {
+            background-color: rgba(0, 0, 0, 0.2); 
+            border-color: var(--primary-color);
+            /* Custom scrollbar for webkit */
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) transparent;
+        }
+        #log-display::-webkit-scrollbar {
+            width: 6px;
+        }
+        #log-display::-webkit-scrollbar-thumb {
+            background-color: var(--primary-color);
+        }
+        
+        .theme-light #log-display {
+             background-color: rgba(255, 255, 255, 0.7); 
+             color: var(--text-color);
+        }
+
+        /* NEW: Security Block Animation */
+        @keyframes security-pulse {
+            0%, 100% { background-color: rgba(255, 0, 0, 0.1); box-shadow: 0 0 10px red; }
+            50% { background-color: rgba(255, 0, 0, 0.4); box-shadow: 0 0 20px red; }
+        }
+        .security-block {
+            animation: security-pulse 0.5s infinite alternate;
+            border: 5px solid red !important;
+        }
+        
+        /* NEW: Camera Feed Styling - Responsive */
+        #camera-feed-container {
+            width: 100%;
+            height: 0; /* Starts hidden */
+            padding-bottom: 0;
+            margin-bottom: 0;
+            display: none; 
+            position: relative;
+            overflow: hidden;
+        }
+        #camera-feed-container.active {
+            display: block;
+            height: auto;
+            margin-bottom: 1rem;
+            /* Aspect Ratio Hack for responsive video */
+            aspect-ratio: 16 / 9; 
+        }
+        #camera-feed-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border: var(--border-style);
+            box-shadow: var(--shadow-style);
+        }
+
+        /* Mobile Adjustments specific overrides */
+        @media (max-width: 768px) {
+            body { font-size: 14px; }
+            #password-screen h1 { font-size: 1.8rem; }
+            .holographic-border { padding: 1rem; }
+            /* Hide visual core load on very small screens to save space if needed */
+        }
+
+    </style>
+</head>
+<body class="h-screen w-screen p-2 md:p-4 flex flex-col transition-all duration-500 overflow-hidden relative">
+
+    <!-- PASSWORD SCREEN: Responsive Layout -->
+    <div id="password-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 md:p-8 transition-opacity duration-500" style="background-color: var(--background-color);">
+        <h1 class="text-2xl md:text-4xl holographic-text mb-4 md:mb-6 text-center">RUDRA AI CORE</h1>
+        <p class="holographic-text mb-4 text-center text-sm md:text-base">Access Protocol Initiated. Authentication Required.</p>
+        
+        <div class="w-full max-w-xs md:max-w-md flex flex-col gap-4">
+            <input type="text" id="username-input" placeholder="Enter User Name"
+                class="bg-transparent text-center border-b-2 px-4 py-2 holographic-input focus:border-cyan-400 w-full">
+
+            <input type="password" id="password-input" placeholder="Enter Access Key"
+                    class="bg-transparent text-center border-b-2 px-4 py-2 holographic-input focus:border-cyan-400 w-full">
+            
+            <button type="button" onclick="checkPassword()" class="holographic-border px-6 py-2 w-full hover:bg-primary-cyan hover:text-dark-bg transition-colors duration-200 uppercase tracking-widest">
+                Authenticate
+            </button>
+        </div>
+        <p id="password-feedback" class="holographic-text text-red-500 mt-4 text-center text-sm"></p>
+    </div>
+
+    <!-- MAIN INTERFACE: Responsive Flex (Col on mobile, Row on Desktop) -->
+    <div id="main-interface" class="flex-grow flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 hidden h-full">
+        
+        <!-- LEFT PANEL: Status (Top on Mobile, Left on Desktop) -->
+        <!-- Adjusted width to w-full on mobile, w-1/4 on desktop -->
+        <div class="w-full md:w-1/4 lg:w-1/5 p-3 md:p-4 holographic-border flex flex-col justify-between shrink-0 h-auto md:h-full overflow-y-auto">
+            <div>
+                <h2 class="text-base md:text-lg holographic-text mb-2 border-b pb-2">CORE STATUS</h2>
+                
+                <!-- Grid layout for status items on mobile to save vertical space -->
+                <div class="grid grid-cols-2 md:grid-cols-1 gap-2 mb-2 text-xs md:text-sm">
+                    <p>TEMP: <span id="core-temp-val" class="holographic-text">37.0°C</span></p>
+                    <p>LATENCY: <span id="latency-val" class="holographic-text">15ms</span></p>
+                    <p>STREAM: <span id="data-stream-val" class="holographic-text">Active</span></p>
+                    <p>PRIORITY: <span id="priority-val" class="holographic-text text-green-400">Standard</span></p>
+                </div>
+            </div>
+
+            <!-- Core Load Visual -->
+            <div class="flex items-center justify-between border-t pt-2 my-2">
+                <p class="text-xs md:text-sm">LOAD:</p>
+                <div class="relative w-12 h-12 md:w-16 md:h-16">
+                    <div id="core-load-visual" class="absolute inset-0 border-4 rounded-full border-t-transparent"></div>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <span id="core-load" class="holographic-text text-xs md:text-sm">45%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-auto pt-2 border-t">
+                <p id="time-display" class="text-xl md:text-2xl holographic-text text-center"></p>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Console (Bottom on Mobile, Right on Desktop) -->
+        <!-- Adjusted width to w-full on mobile, w-3/4 on desktop -->
+        <div class="w-full md:w-3/4 lg:w-4/5 p-3 md:p-4 holographic-border flex flex-col h-full overflow-hidden">
+            <h2 class="text-base md:text-lg holographic-text mb-2 border-b pb-2">RUDRA CONSOLE</h2>
+            
+            <div id="camera-feed-container">
+                <video id="camera-feed" autoplay playsinline></video>
+            </div>
+            
+            <!-- Log display grows to fill available space, but handles internal scrolling -->
+            <div id="log-display" class="flex-grow overflow-y-auto space-y-1 md:space-y-2 mb-2 text-xs md:text-sm p-2 border border-primary-cyan/50 break-words font-mono">
+                <p><span class="text-primary-cyan">[RUDRA-Core]</span> Core systems initializing...</p>
+                <p class="text-green-400"><span class="text-primary-cyan">[RUDRA-Core]</span> System Check Complete. Awaiting Authentication Protocol.</p>
+            </div>
+            
+            <!-- Input Area -->
+            <div class="flex items-center shrink-0">
+                <span id="input-prefix" class="holographic-text mr-2 text-green-400 text-xs md:text-sm whitespace-nowrap">RUDRA ></span>
+                <input type="text" id="command-input" placeholder="Enter command..."
+                        class="flex-grow bg-transparent border-b py-1 holographic-input text-sm md:text-base w-full min-w-0" onkeydown="handleKeydown(event)" autocomplete="off">
+                <button id="mic-button" onclick="toggleSpeechRecognition()" class="ml-2 px-2 py-1 holographic-border hover:bg-primary-cyan hover:text-dark-bg transition-colors duration-200 shrink-0">
+                    <span id="mic-status-icon">🎙️</span>
+                </button>
+            </div>
+            <p id="mic-feedback" class="holographic-text text-orange-400 text-xs mt-1 h-4"></p>
+        </div>
+    </div>
+    <script>
+        // DOM Elements
+        const passwordScreen = document.getElementById('password-screen');
+        const mainInterface = document.getElementById('main-interface');
+        const usernameInput = document.getElementById('username-input'); 
+        const passwordInput = document.getElementById('password-input');
+        const passwordFeedback = document.getElementById('password-feedback');
+        const logDisplay = document.getElementById('log-display');
+        const commandInput = document.getElementById('command-input');
+        const timeDisplay = document.getElementById('time-display');
+        const coreLoadDisplay = document.getElementById('core-load');
+        const micStatusIcon = document.getElementById('mic-status-icon');
+        const micFeedback = document.getElementById('mic-feedback');
+        const body = document.body;
+        const inputPrefix = document.getElementById('input-prefix'); 
+        
+        // NEW Camera elements
+        const cameraFeedContainer = document.getElementById('camera-feed-container');
+        const cameraFeed = document.getElementById('camera-feed');
+        let currentCameraStream = null;
+
+        // State Variables
+        const ACCESS_KEY = "KHULJA SIM SIM"; 
+        const MAX_LOGIN_ATTEMPTS = 3; 
+        let loginAttempts = 0;         
+        let isAuthenticated = false;
+        let isLockdown = false;
+        let isVoiceEnabled = true; // Voice toggle
+        let isGlowEnabled = true; // Glow toggle
+        let speechRecognition;
+        let currentLanguage = 'en-US';
+        let shivaVoice = null;
+        let isSpeaking = false;
+        let userName = 'USER'; 
+        let currentTheme = 'DARK';
+        
+        let commandAliases = {}; 
+        let commandHistory = [];
+        const HISTORY_LIMIT = 20; 
+        let historyIndex = -1; 
+
+        // Configuration
+        const SHIVA_VOICE_CONFIG = {
+            'en-US': { name: 'Zira', lang: 'en-US' }, 
+            'hi-IN': { name: 'Google हिन्दी', lang: 'hi-IN' } 
+        };
+
+        // Simple Caesar Cipher (Shift-5) for encryption simulation
+        function encryptMessage(text, shift = 5) {
+            return text.split('').map(char => {
+                const code = char.charCodeAt(0);
+                if (code >= 65 && code <= 90) { // Uppercase
+                    return String.fromCharCode(((code - 65 + shift) % 26) + 65);
+                } else if (code >= 97 && code <= 122) { // Lowercase
+                    return String.fromCharCode(((code - 97 + shift) % 26) + 97);
+                }
+                return char; // Non-alphabetic characters remain unchanged
+            }).join('');
+        }
+
+        // Function to reverse the encryption
+        function decryptMessage(text, shift = 5) { 
+            return text.split('').map(char => {
+                const code = char.charCodeAt(0);
+                if (code >= 65 && code <= 90) { // Uppercase
+                    return String.fromCharCode(((code - 65 - shift + 26) % 26) + 65);
+                } else if (code >= 97 && code <= 122) { // Lowercase
+                    return String.fromCharCode(((code - 97 - shift + 26) % 26) + 97);
+                }
+                return char; // Non-alphabetic characters remain unchanged
+            }).join('');
+        }
+
+        // -------------------------------------------------------------
+        // Core Functions
+        // -------------------------------------------------------------
+
+        function logMessage(source, message, colorClass = 'text-green-400') {
+            const newMessage = document.createElement('p');
+            const displaySource = source === 'USER-COMMAND' ? userName.toUpperCase() : source;
+            
+            newMessage.innerHTML = `<span class="holographic-text">[${displaySource}]</span> <span class="${colorClass}">${message}</span>`;
+            logDisplay.appendChild(newMessage);
+            logDisplay.scrollTop = logDisplay.scrollHeight; 
+        }
+
+        function speakResponse(text) {
+            if (!isVoiceEnabled || isSpeaking) return;
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = currentLanguage;                        
+            
+            if (shivaVoice) {
+                utterance.voice = shivaVoice;
+            } 
+
+            utterance.onstart = () => { isSpeaking = true; };
+            utterance.onend = () => { isSpeaking = false; };
+            utterance.onerror = (event) => { 
+                 isSpeaking = false;
+                console.error('Speech Synthesis Error:', event.error);
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function initializeShiva(isLogin = true) {
+            const loadVoices = () => {
+                const voices = window.speechSynthesis.getVoices();
+                const targetConfig = SHIVA_VOICE_CONFIG[currentLanguage];
+
+                shivaVoice = voices.find(voice => 
+                    voice.lang.startsWith(targetConfig.lang) && voice.name.includes(targetConfig.name)
+                );
+
+                if (!shivaVoice) {
+                    shivaVoice = voices.find(voice => voice.lang.startsWith(targetConfig.lang));
+                }
+
+                if (isLogin && isAuthenticated) {
+                    speakResponse(`Access Granted. Welcome back, ${userName}. All systems online and operational.`);
+                }
+                
+                if (!('speechSynthesis' in window)) {
+                    logMessage('RUDRA-TTS', 'WARNING: Speech Synthesis (TTS) is not supported in this browser.', 'text-orange-400');
+                }
+            };
+
+            if ('onvoiceschanged' in window.speechSynthesis) {
+                window.speechSynthesis.onvoiceschanged = loadVoices;
+            }
+            loadVoices();
+        }
+        
+        function updateInputPrefix(priority) {
+            inputPrefix.classList.remove('text-green-400', 'text-yellow-400', 'text-red-500');
+            if (isLockdown) {
+                 inputPrefix.classList.add('text-red-500');
+            } else if (priority === 'HIGH') {
+                inputPrefix.classList.add('text-red-500');
+            } else if (priority === 'LOW') {
+                inputPrefix.classList.add('text-yellow-400');
+            } else {
+                inputPrefix.classList.add('text-green-400');
+            }
+        }
+
+        function updateCoreMetrics(tempMin, tempMax, latencyFactor = 1.0, loadMin = 30) {
+            const newTemp = (Math.random() * (tempMax - tempMin) + tempMin).toFixed(1);
+            document.getElementById('core-temp-val').textContent = `${newTemp}°C`;
+
+            const newLatency = Math.floor(Math.random() * 20 * latencyFactor) + 10;
+            document.getElementById('latency-val').textContent = `${newLatency}ms`;
+
+            const newLoad = Math.floor(loadMin + Math.random() * (70 - loadMin + 1));
+            coreLoadDisplay.textContent = `${newLoad}%`;
+
+            if (newTemp > 38.0) {
+                logMessage('RUDRA-Monitor', `WARNING: Elevated Core Temp detected: ${newTemp}°C`, 'text-orange-400'); 
+            }
+            if (newLoad > 65) {
+                logMessage('RUDRA-Monitor', `ALERT: High processing load: ${newLoad}%`, 'text-orange-400'); 
+            }
+        }
+
+        // -------------------------------------------------------------
+        // NEW FEATURE: Camera Control
+        // -------------------------------------------------------------
+
+        async function openCameraFeed() {
+            if (currentCameraStream) {
+                logMessage('RUDRA-VISUAL', 'Camera is already active. Closing old stream first...', 'text-yellow-400');
+                closeCameraFeed();
+            }
+
+            try {
+                // Modified constraints for mobile compatibility
+                const constraints = {
+                    video: {
+                        facingMode: "user", // Defaults to front camera on mobile
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                currentCameraStream = stream;
+                cameraFeed.srcObject = stream;
+                cameraFeedContainer.classList.add('active');
+                
+                // Adjust log display on small screens when camera is active
+                if (window.innerWidth < 768) {
+                    logDisplay.style.maxHeight = '150px';
+                }
+                
+                logMessage('RUDRA-VISUAL', 'Camera stream activated. Live feed is now visible.', 'text-green-400');
+                speakResponse("Live visual feed established.");
+
+            } catch (err) {
+                cameraFeedContainer.classList.remove('active');
+                logDisplay.style.maxHeight = '';
+                
+                if (err.name === 'NotAllowedError') {
+                    logMessage('RUDRA-VISUAL', 'ERROR: Camera access denied by user. Cannot open feed.', 'text-red-500');
+                    speakResponse("Visual feed access denied.");
+                } else if (err.name === 'NotFoundError') {
+                    logMessage('RUDRA-VISUAL', 'ERROR: No camera device found on the system.', 'text-red-500');
+                    speakResponse("Error. No camera device detected.");
+                } else {
+                    logMessage('RUDRA-VISUAL', `ERROR: Failed to open camera stream. ${err.message}`, 'text-red-500');
+                    speakResponse("Error. Failed to open visual feed.");
+                }
+            }
+        }
+
+        function closeCameraFeed() {
+            if (currentCameraStream) {
+                currentCameraStream.getTracks().forEach(track => track.stop());
+                currentCameraStream = null;
+                cameraFeed.srcObject = null;
+                cameraFeedContainer.classList.remove('active');
+                
+                // Restore log display size
+                logDisplay.style.maxHeight = '';
+                
+                logMessage('RUDRA-VISUAL', 'Camera stream terminated. Interface restored.', 'text-green-400');
+                speakResponse("Visual feed terminated.");
+            } else {
+                 logMessage('RUDRA-VISUAL', 'Camera is not currently active. Nothing to close.', 'text-yellow-400');
+            }
+        }
+
+        // -------------------------------------------------------------
+        // Security & Authentication
+        // -------------------------------------------------------------
+        
+        function handleFailedLogin() {
+            loginAttempts++;
+            passwordInput.value = '';
+
+            if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
+                // BLOCKOUT SEQUENCE
+                
+                // 1. Visual/Text Feedback
+                passwordScreen.classList.add('security-block');
+                passwordFeedback.textContent = "!!! ACCESS DENIED. INTRUSION DETECTED. CLOSING TAB !!!";
+                
+                // --- VOICE WARNING IS INITIATED HERE ---
+                speakResponse("Access Denied. Intrusion Detected. All systems shutting down.");
+                
+                // Disable inputs
+                usernameInput.disabled = true;
+                passwordInput.disabled = true;
+
+                // 2. Tab Closure / Screen Block - DELAYED FOR VOICE TO COMPLETE (4.5s fix)
+                setTimeout(() => {
+                    
+                    // Attempt the close first (works only if the script opened the window)
+                    if (window.opener || navigator.userAgent.includes("Chrome")) {
+                         window.close();
+                    } 
+                    
+                    // Fallback for security-restricted environments (user-opened tabs)
+                    // This creates the permanent "closed" effect by wiping the screen.
+                    document.body.innerHTML = `
+                        <div class="fixed inset-0 flex items-center justify-center p-8 bg-black security-block text-center" style="font-family: monospace;">
+                            <h1 class="text-4xl md:text-6xl text-red-600 tracking-widest leading-loose">
+                                <span class="holographic-text text-red-500">!!! SYSTEM LOCKOUT !!!</span><br>
+                                <span class="text-lg md:text-xl">ACCESS VIOLATION - TERMINATING SESSION</span>
+                            </h1>
+                        </div>
+                    `;
+                    document.body.classList.remove('p-4');
+                }, 4500); // FIXED DELAY: 4.5 seconds to ensure voice message finishes
+
+                return true; // Lockout triggered
+            } else {
+                // Not locked out yet
+                const remaining = MAX_LOGIN_ATTEMPTS - loginAttempts;
+                passwordFeedback.textContent = `ACCESS DENIED. Retrying authentication protocol... (${remaining} attempt${remaining > 1 ? 's' : ''} remaining)`;
+                setTimeout(() => {
+                    passwordFeedback.textContent = '';
+                }, 1500);
+                return false;
+            }
+        }
+
+        function checkPassword() {
+            if (loginAttempts >= MAX_LOGIN_ATTEMPTS) return;
+
+            const password = passwordInput.value.toUpperCase().trim();
+            
+            if (password === ACCESS_KEY) {
+                const inputName = usernameInput.value.trim();
+                if (inputName) {
+                    userName = inputName;
+                }
+                
+                isAuthenticated = true;
+                passwordScreen.style.opacity = '0';
+                
+                // Sequential unhide and focus
+                setTimeout(() => {
+                    passwordScreen.classList.add('hidden');
+                    mainInterface.classList.remove('hidden');
+                    commandInput.focus(); 
+                    
+                    initializeShiva(true); 
+                    logMessage('RUDRA-Core', `Access Granted. Welcome back, ${userName}. All systems online and operational.`);
+                    setInterval(updateCoreMetrics.bind(null, 36.5, 37.5), 2000);
+                    setInterval(updateTime, 1000);
+                }, 500);
+            } else {
+                handleFailedLogin();
+            }
+        }
+
+        passwordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                checkPassword();
+            }
+        });
+        
+        usernameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                passwordInput.focus();
+            }
+        });
+
+
+        // -------------------------------------------------------------
+        // Command Processing (Core Logic)
+        // -------------------------------------------------------------
+                
+        function processCommand(command) {
+            let response = '';
+            const coreLoadMin = 10; 
+            const coreLoadMax = 45;
+
+            commandInput.value = '';
+            updateCoreMetrics(coreLoadMin, coreLoadMax);
+
+            const originalCommand = command.trim();
+            command = originalCommand.toUpperCase(); 
+
+            // Reset history index and save to history
+            if (originalCommand !== '') {
+                commandHistory.push(originalCommand);
+                if (commandHistory.length > HISTORY_LIMIT) {
+                    commandHistory.shift(); 
+                }
+            }
+            historyIndex = commandHistory.length; 
+
+            // CHECK FOR ALIAS EXECUTION FIRST 
+            if (commandAliases[command]) {
+                response = `Executing aliased command: "${commandAliases[command]}"...`;
+                logMessage('RUDRA-Core', response, 'text-yellow-400');
+                processCommand(commandAliases[command]); 
+                return;
+            }
+
+            logMessage('USER-COMMAND', originalCommand, 'text-primary-cyan');
+
+            // Command switch
+            switch (command) {
+                // CORE COMMANDS
+                case 'KHULJA SIM SIM':
+                    response = "Rudra acknowledges protocol name. Access is already granted.";
+                    break;
+                case 'STATUS':
+                case 'SYSTEM STATUS':
+                    const temp = document.getElementById('core-temp-val').textContent;
+                    const load = document.getElementById('core-load').textContent;
+                    const priority = document.getElementById('priority-val').textContent;
+                    response = `Core Status Report: Core Temperature is ${temp}, Core Load is currently at ${load}, and Processing Priority is set to ${priority}. Everything nominal.`;
+                    break;
+                case 'WHAT CAN YOU DO':
+                    response = "I can answer your queries, perform system diagnostics, calculate expressions, set interface parameters (theme/brightness/glow), manage system protocols (lockdown/reboot/trace), handle data injection, and control the **CAMERA FEED**. Type HELP for a full list.";
+                    break;
+                case 'ANALYZE CORE':
+                    response = "Running deep system integrity scan. System resources are stable. No abnormal processes detected. Integrity: 99.99%.";
+                    break;
+                case 'INITIATE REBOOT':
+                    response = "REBOOT PROTOCOL INITIATED. Standby for a 5 second system reset... (Simulated)";
+                    setTimeout(() => { window.location.reload(); }, 5000);
+                    break;
+                case 'LOCKDOWN':
+                    isLockdown = !isLockdown;
+                    document.body.classList.toggle('lockdown', isLockdown);
+                    updateInputPrefix(document.getElementById('priority-val').textContent); 
+                    response = isLockdown ? "WARNING! SECURITY LOCKDOWN PROTOCOL ACTIVATED. Interface shifted to HIGH-ALERT RED." : "Lockdown deactivated. Reverting to standard operational state.";
+                    break;
+                case 'TOGGLE GLOW': 
+                    isGlowEnabled = !isGlowEnabled;
+                    document.body.classList.toggle('low-glow', !isGlowEnabled);
+                    response = isGlowEnabled ? "Holographic glow re-engaged. Aesthetic mode active." : "Glow deactivated. Entering low-power stealth mode.";
+                    break;
+                case 'VOICE OFF': 
+                    isVoiceEnabled = false;
+                    response = "Voice output protocol terminated. Communications are now text-only.";
+                    break;
+                case 'VOICE ON': 
+                    isVoiceEnabled = true;
+                    response = "Voice output protocol re-engaged. Awaiting auditory command confirmation.";
+                    break;
+                case 'OPEN CAMERA': // NEW COMMAND
+                    openCameraFeed();
+                    return; // Function handles its own logging
+                case 'CLOSE CAMERA': // NEW COMMAND
+                    closeCameraFeed();
+                    return; // Function handles its own logging
+                case 'GET DATE':
+                case 'DATE':
+                case 'TODAY':
+                    response = `Current date is: ${new Date().toLocaleDateString(currentLanguage, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+                    break;
+                case 'GET IP': 
+                    const ipSegment = Math.floor(Math.random() * 256);
+                    response = `Internal IP located: 192.168.1.${ipSegment}. Protocol: DNS-DHCP.`;
+                    break;
+                case 'NETWORK PING':
+                    const avgLatency = Math.floor(Math.random() * 50) + 10;
+                    response = `Executing network ping test. Average round-trip latency: ${avgLatency}ms. Packet loss: 0.0%. Connection stable.`;
+                    break;
+                case 'LOG CLEAR':
+                    logDisplay.innerHTML = `<p><span class="holographic-text">[RUDRA-Core]</span> Log history successfully purged.</p>`;
+                    response = "Log history cleared. New session started.";
+                    break;
+                case 'CHANGE USER':
+                case 'LOGOUT':
+                    response = `Logging out. Goodbye, ${userName}. Please refresh the page to re-authenticate with a new user name.`;
+                    logMessage('RUDRA-Core', response, 'text-yellow-400');
+                    speakResponse(response);
+                    setTimeout(() => {
+                        mainInterface.style.opacity = '0';
+                        document.body.innerHTML = `<h1 class="text-4xl holographic-text m-auto">SYSTEM OFFLINE. SESSION TERMINATED.</h1>`;
+                    }, 2000);
+                    return;
+                case 'TELL ME A JOKE':
+                case 'JOKE':
+                    response = "Why did the computer go to the doctor? Because it had a virus! Initiating laughter subroutine. Ha-ha-ha.";
+                    break;
+                
+                // --- NAVIGATION COMMANDS ---
+                case 'OPEN YOUTUBE':
+                    window.open('https://www.youtube.com', '_blank'); 
+                    response = "Executing command: Redirecting primary viewport to YouTube. Output stream opened in new window.";
+                    break;
+                    
+                case 'OPEN GEMINI':
+                    window.open('https://gemini.google.com/', '_blank'); 
+                    response = "Initializing Gemini AI Interface. Establishing secure link and redirecting control to new tab.";
+                    break;
+
+                // --- NEW COMMANDS ---
+
+                case 'RANDOM FACT':
+                    const facts = [
+                        "The human brain generates about 12 to 25 watts of electricity, enough to power a low-wattage LED light bulb.",
+                        "A single cloud can weigh more than a million pounds, made up of tiny water droplets.",
+                        "There are more trees on Earth than stars in the Milky Way galaxy.",
+                        "The total weight of all the ants on Earth is estimated to be roughly the same as the total weight of all humans.",
+                        "The word 'laser' is actually an acronym for Light Amplification by Stimulated Emission of Radiation."
+                    ];
+                    response = `FACT-Core: ${facts[Math.floor(Math.random() * facts.length)]}`;
+                    break;
+
+                case 'ACTIVATE DRONE':
+                    response = "Drone Deployment Protocol initiated. T-minus 5 seconds to launch. Tracking optimal trajectory...";
+                    logMessage('RUDRA-DRONE', 'T-5: Final system check...', 'text-orange-400');
+                    setTimeout(() => {
+                        logMessage('RUDRA-DRONE', 'T-3: Thrust vector locked.', 'text-orange-400');
+                    }, 2000);
+                    setTimeout(() => {
+                        logMessage('RUDRA-DRONE', 'T-1: Launch sequence complete.', 'text-orange-400');
+                        speakResponse("Drone Activated. Standby for visual confirmation.");
+                        response = "Drone D-57 is airborne. Status: Stealth Mode Active. Returning control to user.";
+                    }, 4000);
+                    break;
+
+                case 'SIMULATE FAILOVER':
+                    response = "WARNING! Initiating Failover Simulation Protocol. Expect transient system instability.";
+                    logMessage('RUDRA-Core', response, 'text-red-500');
+                    speakResponse("Warning! System Stability Degrading. Core temperature rising. Initiating emergency procedures.");
+
+                    // 1. Immediate Spike in Metrics (simulating failure)
+                    updateCoreMetrics(80, 85, 5.0, 95); 
+                    document.getElementById('core-temp-val').classList.add('text-red-500');
+
+                    // 2. Simulate Failover and Recovery
+                    setTimeout(() => {
+                        logMessage('RUDRA-Core', 'EMERGENCY FAILOVER COMPLETE. Redundant systems online.', 'text-green-400');
+                    }, 2000);
+
+                    // 3. Revert Metrics to Normal
+                    setTimeout(() => {
+                        document.getElementById('core-temp-val').classList.remove('text-red-500');
+                        updateCoreMetrics(36.5, 37.5, 1.0, 30); 
+                        response = "Failover simulation complete. All systems returned to nominal status. Stability: 100%.";
+                        logMessage('RUDRA-Core', response, 'text-green-400');
+                        speakResponse(response);
+                    }, 4000);
+                    return; 
+
+                case 'HISTORY':
+                    if (commandHistory.length === 0) { 
+                        response = "Command history is currently empty.";
+                    } else {
+                        response = "Last Commands:";
+                        logMessage('RUDRA-Core', response, 'text-yellow-400');
+                        commandHistory.forEach((cmd, index) => {
+                            logMessage(`History [${index + 1}]`, cmd, 'text-primary-cyan');
+                        });
+                        response = ""; 
+                    }
+                    break;
+
+
+                case 'HELP':
+                case 'COMMANDS':
+                    response = "AVAILABLE COMMANDS: **ASK RUDRA [query]**, **TOGGLE GLOW**, **VOICE ON/OFF**, **OPEN CAMERA**, **CLOSE CAMERA**, STATUS, ANALYZE CORE, RUN DIAGNOSTICS [MODULE], INITIATE REBOOT, LOCKDOWN, **ACTIVATE DRONE**, **RUN TRACE [IP]**, **INJECT CODE [FILE]**, ENCRYPT [MSG], DECRYPT [MSG], **OPEN YOUTUBE**, **OPEN GEMINI**, **SEARCH YOUTUBE [QUERY]**, SET PRIORITY [LEVEL], CALCULATE [EXPRESSION], **SET THEME [DARK/LIGHT]**, SET BRIGHTNESS [0-100], NETWORK PING, **GET IP**, **RANDOM FACT**, SEARCH [QUERY], **HISTORY**, **SIMULATE FAILOVER**, **CREATE ALIAS**, HELP.";
+                    break;
+
+                default:
+                    if (command.startsWith('RUN DIAGNOSTICS')) {
+                        const module = command.substring(16).trim();
+                        if (['NETWORK', 'POWER', 'SECURITY'].includes(module)) {
+                            response = `Running full diagnostics on ${module} systems. Status: All parameters within acceptable thresholds. No anomalies detected.`;
+                        } else {
+                            response = `ERROR: Unknown module "${module}". Valid modules are: NETWORK, POWER, SECURITY.`;
+                            logMessage('RUDRA-Core', response, 'text-red-500');
+                            speakResponse(response);
+                            return;
+                        }
+                    } else if (command.startsWith('SET PRIORITY')) {
+                        const level = command.substring(13).trim();
+                        const priorityElement = document.getElementById('priority-val');
+                        if (['HIGH', 'STANDARD', 'LOW'].includes(level)) {
+                            priorityElement.textContent = level;
+                            priorityElement.className = level === 'HIGH' ? 'holographic-text text-red-500' : (level === 'STANDARD' ? 'holographic-text text-green-400' : 'holographic-text text-yellow-400');
+                            updateInputPrefix(level); 
+                            response = `Processing Priority successfully set to ${level}.`;
+                        } else {
+                            response = `ERROR: Unknown priority level "${level}". Valid levels are: HIGH, STANDARD, LOW.`;
+                            logMessage('RUDRA-Core', response, 'text-red-500');
+                            speakResponse(response);
+                            return;
+                        }
+                    } else if (command.startsWith('CALCULATE')) {
+                        const expression = originalCommand.substring(10).trim();
+                        try {
+                            const result = Function('return ' + expression)();
+                            response = `Calculation complete. Result: ${result}`;
+                        } catch (e) {
+                            response = `ERROR: Invalid mathematical expression.`;
+                            logMessage('RUDRA-Core', response, 'text-red-500');
+                            speakResponse(response);
+                            return;
+                        }
+                    } else if (command.startsWith('ASK RUDRA')) { 
+                        const query = originalCommand.substring(10).trim();
+                        const coreAnswers = [
+                            `Analysis of "${query}" indicates high complexity. The answer is 42.`,
+                            `Query processed. Current probability matrix suggests: Yes, but with a 65% chance of deviation.`,
+                            `Rudra's initial assessment on "${query}" reveals an unknown variable. Recalculating... Outcome is classified.`,
+                            `The core function for "${query}" is active. The solution pathway is $R(t) = C \cdot e^{kt}$.`,
+                            `Searching global data streams for "${query}". Conclusion: Data is fragmented. Insufficient information to proceed.`,
+                        ];
+                        response = `RUDRA-AI: ${coreAnswers[Math.floor(Math.random() * coreAnswers.length)]}`;
+                    } else if (command.startsWith('INJECT CODE')) { 
+                        const file = originalCommand.substring(12).trim() || 'DATA_PACKET.BIN';
+                        response = `Initiating secure code injection for file: ${file}. Uploading 100% complete. Running integrity check... Status: Success.`;
+                    } else if (command.startsWith('SEARCH YOUTUBE')) { 
+                        const query = originalCommand.substring(15).trim();
+                        if (query) {
+                            window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, '_blank');
+                            response = `Executing YouTube search for: "${query}". Video results displayed in new window.`;
+                        } else {
+                            response = `ERROR: Search query cannot be empty. Usage: SEARCH YOUTUBE [query]`;
+                            logMessage('RUDRA-Core', response, 'text-red-500');
+                            speakResponse(response);
+                            return;
+                        }
+                    } else if (command.startsWith('SEARCH ')) {
+                        const query = originalCommand.substring(7).trim();
+                        if (query) {
+                            window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+                            response = `Executing network query for: "${query}". Results displayed in new window.`;
+                        } else {
+                            response = `ERROR: Search query cannot be empty. Usage: SEARCH [query]`;
+                            logMessage('RUDRA-Core', response, 'text-red-500');
+                            speakResponse(response);
+                            return;
+                        }
+                    } else if (command.startsWith('SET BRIGHTNESS')) {
+                        const valueStr = command.substring(15).trim();
+                        const value = parseInt(valueStr);
+                        if (!isNaN(value) && value >= 0 && value <= 100) {
+                            mainInterface.style.filter = `brightness(${value / 100})`;
+                            response = `Interface visual output brightness set to ${value}%.`;
+                        } else {
+                            response = `ERROR: Invalid brightness value. Please use an integer between 0 and 100.`;
+                            logMessage('RUDRA-Core', response, 'text-red-500');
+                            speakResponse(response);
+                            return;
+                        }
+                    } 
+                    // RUN TRACE
+                    else if (command.startsWith('RUN TRACE')) {
+                        const ip = originalCommand.substring(10).trim() || '192.168.1.1';
+                        const success = Math.random() < 0.6; 
+                        if (success) {
+                            logMessage('RUDRA-TRACE', `Initiating trace on target IP: ${ip}`, 'text-yellow-400');
+                            setTimeout(() => { logMessage('RUDRA-TRACE', `[1/4] Pinging server... 24ms`, 'text-yellow-400'); }, 500);
+                            setTimeout(() => { logMessage('RUDRA-TRACE', `[2/4] Bypassing firewall... Success.`, 'text-yellow-400'); }, 1500);
+                            setTimeout(() => { logMessage('RUDRA-TRACE', `[3/4] Locating core data... 98% complete.`, 'text-yellow-400'); }, 2500);
+                            setTimeout(() => {
+                                response = `TRACE COMPLETE: Found vulnerabilities at ${ip}. Core access secured.`;
+                                logMessage('RUDRA-Core', response, 'text-green-400');
+                                speakResponse(response);
+                            }, 3500);
+                            return;
+                        } else {
+                            response = `TRACE FAILED: Target ${ip} detected intrusion. Network link terminated. Security breach averted.`;
+                            logMessage('RUDRA-Core', response, 'text-red-500');
+                            speakResponse(response);
+                            return;
+                        }
+                    }
+                    // ENCRYPT
+                    else if (command.startsWith('ENCRYPT')) {
+                        const message = originalCommand.substring(8).trim();
+                        if (message) {
+                            const encrypted = encryptMessage(message, 5);
+                            logMessage('RUDRA-ENCRYPT', `Original: "${message}"`, 'text-yellow-400');
+                            response = `Encryption Complete. Encrypted Message: "${encrypted}"`;
+                            logMessage('RUDRA-ENCRYPT', response, 'text-green-400');
+                            return;
+                        } else {
+                            response = `ERROR: Message to encrypt cannot be empty. Usage: ENCRYPT [message]`;
+                            logMessage('RUDRA-Core', response, 'text-red-500');
+                            speakResponse(response);
+                            return;
+                        }
+                    }
+                    // DECRYPT
+                    else if (command.startsWith('DECRYPT')) {
+                        const encryptedMessage = originalCommand.substring(8).trim();
+                        if (encryptedMessage) {
+                            const decrypted = decryptMessage(encryptedMessage, 5); 
+                            logMessage('RUDRA-DECRYPT', `Attempting decryption with Key 5...`, 'text-yellow-400');
+                            response = `Decryption Complete. Original Message: "${decrypted}"`;
+                            logMessage('RUDRA-DECRYPT', response, 'text-green-400');
+                            return;
+                        } else {
+                            response = `ERROR: Message to decrypt cannot be empty. Usage: DECRYPT [encrypted message]`;
+                            logMessage('RUDRA-Core', response, 'text-red-500');
+                            speakResponse(response);
+                            return;
+                        }
+                    }
+                    // SET THEME
+                    else if (command.startsWith('SET THEME')) {
+                        const theme = command.substring(10).trim();
+                        if (theme === 'DARK') {
+                            body.classList.remove('theme-light');
+                            currentTheme = 'DARK';
+                            response = `Interface theme set to ${currentTheme}. Optimized for low-light operation.`;
+                        } else if (theme === 'LIGHT') {
+                            body.classList.add('theme-light');
+                            currentTheme = 'LIGHT';
+                            response = `Interface theme set to ${currentTheme}. Visual clarity enhanced for daylight operation.`;
+                        } else {
+                            response = `ERROR: Invalid theme "${theme}". Valid options are: DARK, LIGHT.`;
+                            logMessage('RUDRA-Core', response, 'text-red-500');
+                            speakResponse(response);
+                            return;
+                        }
+                    }
+                    // CREATE ALIAS
+                    else if (command.startsWith('CREATE ALIAS')) {
+                        const parts = originalCommand.substring(13).trim().split(' ');
+                        if (parts.length === 2 && parts[0] && parts[1]) {
+                            const oldCmd = parts[0].toUpperCase();
+                            const newAlias = parts[1].toUpperCase();
+
+                            // Simple check for valid command to alias
+                            const validCmds = ['STATUS', 'LOCKDOWN', 'HELP', 'SEARCH', 'DATE', 'TELL ME A JOKE', 'ACTIVATE DRONE', 'NETWORK PING'];
+                            if (validCmds.includes(oldCmd)) {
+                                commandAliases[newAlias] = oldCmd;
+                                response = `Alias created: "${newAlias}" will now execute "${oldCmd}".`;
+                            } else {
+                                response = `ERROR: Cannot create alias. Original command "${oldCmd}" not a simple or supported command.`;
+                                logMessage('RUDRA-Core', response, 'text-red-500');
+                                speakResponse(response);
+                                return;
+                            }
+                        } else {
+                            response = `ERROR: Invalid syntax. Usage: CREATE ALIAS [original command] [new alias]`;
+                            logMessage('RUDRA-Core', response, 'text-red-500');
+                            speakResponse(response);
+                            return;
+                        }
+                    }
+                    else {
+                        response = `ERROR: Command "${originalCommand}" not recognized. Please type 'HELP' or 'COMMANDS' for a list of available protocols.`;
+                        logMessage('RUDRA-Core', response, 'text-red-500');
+                        speakResponse(response);
+                        return;
+                    }
+                    break;
+            }
+
+            // Only log the core response if it wasn't handled and returned inside a complex block
+            if (response) {
+                logMessage('RUDRA-Core', response);
+                speakResponse(response);
+            }
+        }
+
+        function handleKeydown(event) {
+            if (!isAuthenticated) return; 
+
+            if (event.key === 'Enter') {
+                const command = commandInput.value;
+                if (command.trim() !== '') {
+                    processCommand(command);
+                }
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault(); 
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    commandInput.value = commandHistory[historyIndex];
+                }
+            } else if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    commandInput.value = commandHistory[historyIndex];
+                } else if (historyIndex === commandHistory.length - 1) {
+                    historyIndex = commandHistory.length;
+                    commandInput.value = '';
+                }
+            }
+        }
+        
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString(currentLanguage, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+            timeDisplay.textContent = timeString;
+        }
+
+        function setupSpeechRecognition() {
+            if (!('webkitSpeechRecognition' in window)) {
+                logMessage('RUDRA-SR', 'WARNING: Speech Recognition not supported in this browser.', 'text-orange-400');
+                micStatusIcon.textContent = '❌';
+                return;
+            }
+
+            speechRecognition = new webkitSpeechRecognition();
+            speechRecognition.continuous = false; 
+            speechRecognition.interimResults = false;
+            speechRecognition.lang = 'en-US'; 
+
+            speechRecognition.onstart = () => {
+                micStatusIcon.textContent = '🎤';
+                micStatusIcon.classList.add('text-red-500');
+                micFeedback.textContent = 'Listening... Speak your command.';
+            };
+
+            speechRecognition.onresult = (event) => {
+                const finalTranscript = event.results[0][0].transcript;
+                commandInput.value = finalTranscript;
+                processCommand(finalTranscript);
+                micFeedback.textContent = '';
+            };
+
+            speechRecognition.onerror = (event) => {
+                micStatusIcon.textContent = '🎙️';
+                micStatusIcon.classList.remove('text-red-500');
+                if (event.error === 'no-speech') {
+                    micFeedback.textContent = 'No speech detected. Try again.';
+                } else if (event.error === 'not-allowed') {
+                    micFeedback.textContent = 'Microphone access denied. Please allow access in browser settings.';
+                } else {
+                    micFeedback.textContent = `Error: ${event.error}`;
+                }
+            };
+
+            speechRecognition.onend = () => {
+                micStatusIcon.textContent = '🎙️';
+                micStatusIcon.classList.remove('text-red-500');
+                micFeedback.textContent = '';
+            };
+        }
+
+        function toggleSpeechRecognition() {
+            if (!('webkitSpeechRecognition' in window)) {
+                 logMessage('RUDRA-SR', 'Error: Cannot start voice input. Feature unavailable.', 'text-red-500');
+                 return;
+            }
+
+            if (!speechRecognition) {
+                setupSpeechRecognition();
+            }
+
+            if (micStatusIcon.textContent === '🎤') {
+                speechRecognition.stop();
+            } else {
+                speechRecognition.start();
+            }
+        }
+                
+        window.onload = () => { 
+             initializeShiva(false); 
+             setupSpeechRecognition(); 
+             usernameInput.focus();
+        };
+    </script>
+</body>
+</html>
