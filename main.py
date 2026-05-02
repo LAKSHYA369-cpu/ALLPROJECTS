@@ -7,7 +7,7 @@ import time
 from google import genai 
 
 # --- CONFIGURATION ---
-GEMINI_API_KEY = "AIzaSyAZvVP7p10eUhL558MH6lt6VYNHwJjZDxQ" # <--- Yahan apni API Key daalein
+GEMINI_API_KEY = "ENTER_YOUR_API_KEY_HERE" # <--- Yahan apni API Key daalein
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 app = FastAPI()
