@@ -12,7 +12,7 @@ import socket
 from datetime import datetime
 
 # --- CONFIGURATION & INITIALIZATION ---
-GEMINI_API_KEY = "AIzaSyAZvVP7p10eUhL558MH6lt6VYNHwJjZDxQ" #
+GEMINI_API_KEY = "ENTER_YOUR_API_KEY_HERE" #Paste your API key here
 client = genai.Client(api_key=GEMINI_API_KEY)
 engine = pyttsx3.init()
 
